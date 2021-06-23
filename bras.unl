@@ -1,0 +1,738 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<lab name="Junos BRAS PPPoE" id="1a890418-a5d0-4013-a44e-a7e6f072b10d" version="3" scripttimeout="300" lock="0" author="Davi Nunes">
+  <description>Este laboratório tem a finalidade de explorar as configurações de Broadband Remote Access Server (BRAS, B-RAS ou BBRAS).
+ </description>
+  <body> 
+## Cenário
+
+Este laboratório está focado em Junos e todas as tarefas estão voltadas principalmente para juniper, portanto, os demais componentes do LAB estão somente para simular a conectividade que envolve um BRAS.
+
+Sendo assim, o BGP, a CPE do cliente e CGNAT estão representados por imagens Mikrotik, que farão o trabalho simplificado.
+Alguns equipamentos estão com uma porta conectada a uma Nuvem chamada **Console**, com a finalidade de facilitar o gerenciamento do equipamento através do emulador.
+
+Como preparação, é preciso inicilizar todos os hosts e então realizar as configurações básicas, a fim de que haja conectividade de internet na VM BGP e que o protocolo ospf esteja rodando entre os 3 Roteadores.
+  
+## Preparação
+  
+* Ao iniciar o junos pela primeira vez, acesse com usuário `root` e deixa a senha em branco. 
+* Então, use o comando `cli` para entrar no modo de usuário e o comando `configure` para acessar o modo de configuração. 
+* Vamos configurar agora um ip de gerencia na interface **fxp0**, para acessarmos por **ssh** e facilitar as configurações:
+
+```
+set interfaces fxp0 description "Interface de Gerencia"
+set interfaces fxp0 unit 0 family inet address 192.168.3.2/24
+commit
+```
+ * Configure um usuário e habilite o acesso SSH. Ao colar códigos no terminal, o console SSH suporta mais caracteres de entrada que o console serial, facilitando o desempenho do LAB.
+
+```
+######################################
+## Criacao do Usuario e acesso remoto
+######################################
+
+## senha de root: aluno123
+## senha do usuario aluno: aluno123
+deactivate system syslog user *
+set system root-authentication encrypted-password "$6$AdGIwxtT$HiMERKGwSlaZVIDj8YcN4wKI2JcB822h0/XGimLKnCK7x32Y5gEAdbx2xsfmAQ57.UsPwbYjAVeVnexhEj6Yf."
+set system login user aluno class super-user
+set system login user aluno authentication encrypted-password "$6$X51ZaE4H$i49ODzPDNH6PonaRC2CAnQBNiFopFFr7SPUkDo1NLpgysy6NiY2qHLy0LeSux74uLtt2K1Fjwy0HT7I6HCnp4/"
+set system services ssh
+commit
+######################################
+```
+
+* Agora podemos logar no junos pelo ip de gerencia, que vc deve *adequar* ao seu lab, basta conectar a **fxp0** na nuvem 
+* Já podemos aplicar a licença de teste gratuita no JunOS, válida por 60 dias, que é tempo suficiente para explorar o LAB:
+
+```
+run request system license add terminal
+```
+
+* Cole a chave e, numa linha vazia, pressione **Ctrl + D** para confirmar:
+
+```
+E435890758 aeaqic aiagij cpabsc idycyi giydco bqgiyd
+           sdapoz gvqlkk ovxgs4 dfojcx mylma4 uhfs7p
+           etdlfc ex2i5k 4mo4fa ew2xbz ujzbol 4fl44z
+           ya3md2 drdgjf preowc 5ubrju kyq'
+```
+
+* Podemos verificar a licença com o comando `run show system license`
+* Configure os IPs nas interfaces para estabelecer conectividade
+
+
+| Roteador | Interface | IP | Vlan |
+| ------------- | --- | --- | --- |
+| Juniper | ge-0/0/0 | 10.1.1.2/30 | - |
+| Juniper | ge-0/0/1 | 10.3.1.2/30 | - |
+| Juniper | lo | 10.0.0.1/32 | - |
+| CGNat | ether2 | 10.1.1.1/30 | - |
+| CGNat | ether3 | 10.2.1.1/30 | - |
+| BGP | ether2 | 10.3.1.1/30 | - |
+| BGP | ether3 | 10.2.1.2/30 | - |
+| BGP | ether4 | 10.4.1.1/30 | - |
+| FreeRadius | ens3 | 10.4.1.2/30 | - |
+
+* Comandos no Junos:
+
+```
+top edit interfaces lo0 unit 0
+set description "LOOPBACK"
+set family inet address 10.0.0.1/32
+
+top edit interfaces ge-0/0/0 unit 0
+set description "CGNAT"
+set family inet address 10.1.1.2/30
+
+top edit interfaces ge-0/0/1 unit 0
+set description "BGP"
+set family inet address 10.3.1.2/30
+
+commit
+```
+
+* Vamos estabelecer OSPF entre o CGNAT e o BRAS para que conheçam as rotas dos clientes PPPoE
+
+```
+top set routing-options router-id 10.0.0.1
+top set protocols ospf area 0.0.0.0 interface ge-0/0/0.0
+top set protocols ospf area 0.0.0.0 interface ge-0/0/1.0
+top set protocols ospf area 0.0.0.0 interface lo0.0 passive
+commit
+```
+
++ Após configurar os outros roteadores, basta testar se as rotas estão distribuidas
+
+## Configurações de BRAS ("Concentrador PPPoE")
+
+
+
+* Primeiro vamos habilitar o gerenciamento de clientes na caixa. Será necessário reboot após estas configurações
+
+```
+set system services subscriber-management enable
+set chassis network-services enhanced-ip
+set system configuration-database virtual-memory-mapping process-set subscriber-management fixed-size 52500
+set system configuration-database virtual-memory-mapping process-set subscriber-management page-pooling-size 22500
+set system configuration-database max-db-size 104857600
+commit
+run request system reboot
+```
+
+* O Junos vai autenticar em um servidor Radius, portanto, vamos confiurar a conexão com Radius
+
+```
+## IP do Servidor Radius
+top edit access radius-server 177.67.96.253
+set port 1812
+set accounting-port 1813
+## senha do nas
+set secret niq_789658
+top set access radius-disconnect-port 3799
+top set access radius-disconnect 177.67.96.253
+```
+
+* O Junos trabalha com perfil de autenticação, isto é, perfil de acesso, é possivel utilizar mais de um perfil e, por exemplo, cada grupo de vlan utilizar um perfil diferente. 
+
+Dito isto, neste exemplo vamos trabalhar com dois métodos de perfil dinâmico, onde no primeiro as configurações de firewall são dinâmicas e, no segundo, estáticas.
+
+É importante lembrar que é preciso uma licença especial para utilizar o perfil de forma dinamica.
+
+```
+top edit access profile PPPoE-AAA-Profile
+set authentication-order radius
+set domain-name-server 8.8.8.8
+set radius authentication-server 177.67.96.253 
+set radius accounting-server 177.67.96.253
+set radius options nas-port-extended-format slot-width 5
+set radius options nas-port-extended-format adapter-width 1
+set radius options nas-port-extended-format port-width 3
+set radius options client-authentication-algorithm round-robin
+set accounting order radius
+set accounting accounting-stop-on-failure
+set accounting accounting-stop-on-access-deny
+set accounting immediate-update
+set accounting coa-immediate-update
+set accounting address-change-immediate-update
+set accounting update-interval 120
+set accounting statistics volume-time
+commit
+```
+
+* Precisamos definir um domínio, assim o perfil de autenticação criado acima se torna o padrão
+
+```
+## Configurando dominio de acesso:
+top edit access domain map default
+## Qual perfil de acesso usar
+set access-profile PPPoE-AAA-Profile
+## Qual pool usar por padrao
+set address-pool pool-1
+
+## Global config
+top
+set system processes general-authentication-service traceoptions file radius
+set system processes general-authentication-service traceoptions flag all
+## Perfil de AAA padrao
+set access-profile PPPoE-AAA-Profile
+set protocols pppoe traceoptions file "log_pppoe"
+set protocols pppoe traceoptions file files 5
+set protocols pppoe traceoptions level notice
+set protocols pppoe traceoptions flag all
+commit
+```
+
+* Criando o Pool IPv4 
+
+```
+top edit access address-assignment
+set pool pool-1 family inet network 100.64.0.0/10
+set pool pool-suspenso family inet network 169.254.0.0/22
+commit
+```
+
+### Controle de banda via Service Activate (Feature 35)
+
+Nota: É necessário ter este feature ativado na licença
+
++ Primeiro, habilitar o versionamento de profile na caixa, assim, não será necessário derrubar todos os clientes quando fizer uma alteração no profile.
+
+```
+set system dynamic-profile-options versioning
+```
+
+* Vamos configurar um perfil dinâmico básico. Este perfil básico será iterado pelos "serviços" dinamicos que serão informado pelo Radius.
+
+```
+top edit dynamic-profiles PPPoE-Base
+set routing-instances "$junos-routing-instance" interface "$junos-interface-name"
+set routing-instances "$junos-routing-instance" routing-options access-internal route $junos-subscriber-ip-address qualified-next-hop "$junos-interface-name"
+set interfaces pp0 unit "$junos-interface-unit" ppp-options chap
+set interfaces pp0 unit "$junos-interface-unit" ppp-options pap
+set interfaces pp0 unit "$junos-interface-unit" ppp-options mru 1500
+set interfaces pp0 unit "$junos-interface-unit" ppp-options mtu 1500
+set interfaces pp0 unit "$junos-interface-unit" pppoe-options underlying-interface "$junos-underlying-interface"
+set interfaces pp0 unit "$junos-interface-unit" pppoe-options server
+set interfaces pp0 unit "$junos-interface-unit" keepalives interval 60
+set interfaces pp0 unit "$junos-interface-unit" family inet rpf-check
+set interfaces pp0 unit "$junos-interface-unit" family inet unnumbered-address "$junos-loopback-interface"
+top
+commit
+
+## Perfil para vlan demux?
+
+set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" vlan-id "$junos-vlan-id"
+set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" demux-options underlying-interface "$junos-interface-ifd-name"
+set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" family pppoe access-concentrator PPPoE-Base
+set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" family pppoe duplicate-protection
+set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" family pppoe dynamic-profile PPPoE-Base
+
+
+
+
+
+
+
+```
+
+* Sobe o servidor PPPoE com controle de banda dinamico na vlan 1000
+
+```
+top edit interfaces ge-0/0/2
+set description CLIENTES-PPPOE
+set flexible-vlan-tagging
+edit unit 1000
+set vlan-id 1000
+set family pppoe access-concentrator VLAN1000
+set family pppoe dynamic-profile PPPoE-Base
+commit
+
+## Comentar esta parte na doc:
+ilunne@CORE-ACESSO> show configuration interfaces xe-0/0/3 | display set
+set description CLIENTES-PPPOE
+set flexible-vlan-tagging
+set auto-configure vlan-ranges dynamic-profile vlan-profile accept pppoe
+set auto-configure vlan-ranges dynamic-profile vlan-profile ranges any
+set auto-configure vlan-ranges override
+set auto-configure vlan-ranges access-profile PPPoE-Access-Profile
+set auto-configure remove-when-no-subscribers
+set encapsulation flexible-ethernet-services
+
+
+
+
+
+```
+
+* Cria o Serviço que será passado pelo Radius, com Variáveis, para IPv4
+
+```
+top edit dynamic-profiles IPV4
+set variables Bandwidth-IN default-value 32k
+set variables Bandwidth-IN mandatory
+set variables Bandwidth-OUT default-value 32k
+set variables Bandwidth-OUT mandatory
+set variables Burst-IN default-value 2m
+set variables Burst-OUT default-value 2m
+set variables Policer-IN uid
+set variables Policer-OUT uid
+set variables Filter-IN uid
+set variables Filter-OUT uid
+set interfaces pp0 unit "$junos-interface-unit" family inet filter input "$Filter-IN"
+set interfaces pp0 unit "$junos-interface-unit" family inet filter output "$Filter-OUT"
+set firewall family inet filter "$Filter-IN" interface-specific
+set firewall family inet filter "$Filter-IN" term 10 then policer "$Policer-IN"
+set firewall family inet filter "$Filter-IN" term 10 then accept
+set firewall family inet filter "$Filter-OUT" interface-specific
+set firewall family inet filter "$Filter-OUT" term 10 then policer "$Policer-OUT"
+set firewall family inet filter "$Filter-OUT" term 10 then accept
+set firewall policer "$Policer-IN" logical-interface-policer
+set firewall policer "$Policer-IN" if-exceeding bandwidth-limit "$Bandwidth-IN"
+set firewall policer "$Policer-IN" if-exceeding burst-size-limit "$Burst-IN"
+set firewall policer "$Policer-IN" then discard
+set firewall policer "$Policer-OUT" logical-interface-policer
+set firewall policer "$Policer-OUT" if-exceeding bandwidth-limit "$Bandwidth-OUT"
+set firewall policer "$Policer-OUT" if-exceeding burst-size-limit "$Burst-OUT"
+set firewall policer "$Policer-OUT" then discard
+top
+commit
+```
+
+Feito isto, a caixa já deve estar capaz de autenticar um cliente e entregar um ip através do pool padrão definido acima. porém ainda não funciona com ipv6.
+
+
+## Freeradius
+
+
+Criei uma vm simplificada com freeradius3 para utilizar somente neste LAB, utilizando este tutorial: https://blog.remontti.com.br/2066.
+
+Credenciais necessárias para possiveis testes: 
+
+| Plataforma | Usuário | Senha | 
+| ------------- | --- | --- | 
+| linux | root | eve | 
+| phpmyadmin | radius | SENHA-DO-USER-RADIUS |
+| mysql | root | SUA-SENHA-USER-ROOT | 
+
+
+Para fazer que o radius aceite qualquer ip deste lab, eu editei o arquivo `/etc/freeradius/3.0/clients.conf` e adicionei o seguinte:
+ 
+```
+client LAB {
+        ipaddr          = 10.0.0.0/8
+        secret          = radius
+}
+```
+
+Nas tabelas radcheck, radusergroup e radgroupreply inseri estes dados:
+
+```
+INSERT INTO `radcheck` (`id`, `username`, `attribute`, `op`, `value`) VALUES
+(1, 'teste1', 'Cleartext-Password', ':=', 'teste1'),
+(2, 'teste2', 'Cleartext-Password', ':=', 'teste2');
+
+INSERT INTO `radusergroup` (`username`, `groupname`, `priority`) VALUES
+('teste1', 'FTTH_025M', 1),
+('teste2', 'FTTH_050M', 1);
+
+INSERT INTO `radgroupreply` (`id`, `groupname`, `attribute`, `op`, `value`) VALUES
+(1, 'FTTH_025M', 'ERX-Service-Activate:1', '=', '\"IPV4(20M,30M)\"'),
+(2, 'FTTH_050M', 'ERX-Service-Activate:1', '=', '\"IPV4(30M,50M)\"'),
+(3, 'FTTH_050M', 'ERX-Service-Activate:2', '=', '\"IPV6(30M,50M)\"');
+```
+
+Tudo certo, funcionando!
+
+Agora podemos implementar IPv6 e depois os planos estáticos.
+
+## IMPLEMENTAÇÃO DE IPV6
+
+
+* Antes de tudo vamos configurar um IPv6 na loopback
+
+```
+set interfaces lo0 unit 0 family inet6 address 2804:face:b00c::1/128 preferred
+```
+
++ Agora vamos tratar a parte de roteamento em ipv6:
+
+* Devemos incluir a interface que conecta no bgp na area 0.0.0.0, bem como atribuir um ip global a esta interface:
+
+```
+top edit interfaces ge-0/0/1 unit 0
+set family inet6 address 2804:2b28:2000:200::2/64
+top set protocols ospf3 area 0.0.0.0 interface ge-0/0/1.0
+```
+
++ Depois devemos criar o filtro para publicar as rotas no ospf3. Neste filtro, o primeiro termo Sumariza o Pool Configurado no junos e o segundo termo aceita os demais prefixos que sejam entregues via Radius
+
+```
+top 
+set protocols ospf3 export Export_OSPF
+
+top edit policy-options policy-statement Export_OSPF
+edit term Sumarizar
+set from route-filter 2804:2b28:440::/44 exact accept
+set from route-filter 2804:2b28:440::/44 orlonger reject
+set then accept
+## Propagar também as rotas conectadas:
+up 
+edit term 2
+set from protocol access
+set then accept
+top
+```
+
++ Publicar a rota de Blackhole da pool ipv6 empregado:
+
+```
+set routing-options rib inet6.0 static route 2804:2b28:440::/44 discard
+```
+
+### Ajustes especificos para IPv6
+
+
+* Primeiro vamos ajustar o ipv6 no perfil base:
+
+```
+top edit dynamic-profiles PPPoE-Base
+set interfaces pp0 unit "$junos-interface-unit" family inet6 address $junos-ipv6-address
+set interfaces pp0 unit "$junos-interface-unit" family inet6 unnumbered-address "$junos-loopback-interface"
+set protocols router-advertisement interface "$junos-interface-name" prefix $junos-ipv6-ndra-prefix
+```
+
+* Ajustando perfil de autenticacao para IPv6:
+
+```
+top edit access profile PPPoE-AAA-Profile
+set domain-name-server-inet6 2001:4860:4860::8888
+set domain-name-server-inet6 2001:4860:4860::8844
+top
+```
+
+* Criando o Pool IPv6 
+
+```
+top edit access address-assignment
+set neighbor-discovery-router-advertisement ndra
+
+set pool ndra family inet6 prefix 2804:2b28:450::/44
+set pool ndra family inet6 range ndra-range prefix-length 64
+
+set pool v6-pool-1 family inet6 prefix 2804:2b28:440::/44
+set pool v6-pool-1 family inet6 range prefix-range prefix-length 56
+
+commit
+```
+
+* Configura um Servidor DHCPv6
+
+```
+top edit system services dhcp-local-server dhcpv6
+set overrides delegated-pool v6-pool-1
+set overrides multi-address-embedded-option-response
+set group group-pppoe interface pp0.0
+top
+commit
+```
+ 
+Feito isso, já está rodando ipv6 no cliente, basta o CPE solicitar via **dhcp-client**
+
+Para aplicar politicas de firewall dinamicamente, basta informar via Radius um novo **Service-Activate**
+
++ Cria o modelo que será passado pelo Radius, com Variáveis, para IPv6 
+
+``` 
+top edit dynamic-profiles IPV6
+set variables Bandwidth-IN-V6 default-value 32k
+set variables Bandwidth-IN-V6 mandatory
+set variables Bandwidth-OUT-V6 default-value 32k
+set variables Bandwidth-OUT-V6 mandatory
+set variables Burst-IN-V6 default-value 2m
+set variables Burst-OUT-V6 default-value 2m
+set variables Policer-IN-V6 uid
+set variables Policer-OUT-V6 uid
+set variables Filter-IN-V6 uid
+set variables Filter-OUT-V6 uid
+set interfaces pp0 unit "$junos-interface-unit" family inet6 filter input "$Filter-IN-V6"
+set interfaces pp0 unit "$junos-interface-unit" family inet6 filter output "$Filter-OUT-V6"
+set firewall family inet6 filter "$Filter-IN-V6" interface-specific
+set firewall family inet6 filter "$Filter-IN-V6" term 10 then policer "$Policer-IN-V6"
+set firewall family inet6 filter "$Filter-IN-V6" term 10 then accept
+set firewall family inet6 filter "$Filter-OUT-V6" interface-specific
+set firewall family inet6 filter "$Filter-OUT-V6" term 10 then policer "$Policer-OUT-V6"
+set firewall family inet6 filter "$Filter-OUT-V6" term 10 then accept
+set firewall policer "$Policer-IN-V6" logical-interface-policer
+set firewall policer "$Policer-IN-V6" if-exceeding bandwidth-limit "$Bandwidth-IN-V6"
+set firewall policer "$Policer-IN-V6" if-exceeding burst-size-limit "$Burst-IN-V6"
+set firewall policer "$Policer-IN-V6" then discard
+set firewall policer "$Policer-OUT-V6" logical-interface-policer
+set firewall policer "$Policer-OUT-V6" if-exceeding bandwidth-limit "$Bandwidth-OUT-V6"
+set firewall policer "$Policer-OUT-V6" if-exceeding burst-size-limit "$Burst-OUT-V6"
+set firewall policer "$Policer-OUT-V6" then discard
+top
+commit
+```
+
+
+### Controle de Banda via policy Estática
+
+ 
++ Para quem não tem a licença para configurar os planos de forma dinâmica, deverá criar uma configuração para CADA plano, e esta configuração deverá ser passada pelo Radius
+ 
++ Então, criaremos um Serviço e ele será aplicado na Vlan 2000
+ 
+```
+top edit dynamic-profiles PPPoE-Estatico
+set routing-instances "$junos-routing-instance" interface "$junos-interface-name"
+set routing-instances "$junos-routing-instance" routing-options access-internal route $junos-subscriber-ip-address qualified-next-hop "$junos-interface-name"
+set interfaces pp0 unit "$junos-interface-unit" ppp-options chap
+set interfaces pp0 unit "$junos-interface-unit" ppp-options pap
+set interfaces pp0 unit "$junos-interface-unit" ppp-options mru 1500
+set interfaces pp0 unit "$junos-interface-unit" ppp-options mtu 1500
+set interfaces pp0 unit "$junos-interface-unit" pppoe-options underlying-interface "$junos-underlying-interface"
+set interfaces pp0 unit "$junos-interface-unit" pppoe-options server
+set interfaces pp0 unit "$junos-interface-unit" keepalives interval 60
+set interfaces pp0 unit "$junos-interface-unit" family inet rpf-check
+set interfaces pp0 unit "$junos-interface-unit" family inet unnumbered-address "$junos-loopback-interface"
+
+## São estas configurações abaixo que garantem o funcionamento da policy
+set family inet filter input "$junos-input-filter"
+set family inet filter output "$junos-output-filter"
+set family inet6 filter input "$junos-input-ipv6-filter"
+set family inet6 filter output "$junos-output-ipv6-filter"
+```
+
++ Abaixo, criando o plano de 10M, para cada plano novo, copiar e fazer as alterações necessárias
+
+```
+###################################################################################################
+## Exemplo que cria os planos baseados em Trafic Chaping estáticos
+###################################################################################################
+
+## Queue 10M
+top edit firewall policer 10M-out-rate 
+## Download do cliente
+set if-exceeding bandwidth-limit 10M
+set if-exceeding burst-size-limit 1M
+set then discard
+top edit firewall policer 10M-in-rate 
+## Upload do Cliente
+set if-exceeding bandwidth-limit 4M
+set if-exceeding burst-size-limit 500k
+set then discard
+
+## PLANO de 10M
+top edit firewall filter OUT-10M
+set interface-specific
+set term 1 filter residencial-output 
+## politica de firewall proteger cliente
+set term 3 then policer 10M-out-rate 
+## queue de download
+set term 3 then accept
+top edit firewall filter IN-10M
+set interface-specific
+set term 1 filter residencial-input 
+## politica de firewall proibir cliente
+set term 3 then policer 10M-in-rate 
+## queue de upload
+set term 3 then accept
+
+###################################################################################################
+## Define as politicas de firewall
+###################################################################################################
+
+## Politicas do que o cliente pode acessar externamente
+top edit firewall family inet filter residencial-input
+set term NetBios from protocol tcp
+set term NetBios from protocol udp
+set term NetBios from port 135-139
+set term NetBios from port 445
+set term NetBios then discard
+## Politicas para proteger o cliente
+top edit firewall family inet filter residencial-output
+set term NetBios from protocol tcp
+set term NetBios from protocol udp
+set term NetBios from port 135-139
+set term NetBios from port 445
+set term NetBios then discard
+set term PortasBaixas from protocol tcp
+set term PortasBaixas from destination-port 1-1024
+set term PortasBaixas then discard
+
+```
+
+
+## Anotações
+
+*Por algum motivo, com a configuração acima não está funcionando, então configurei de forma estatica a vlan 1000:
+```
+set auto-configure stacked-vlan-ranges dynamic-profile PPPoE-Base accept pppoe
+set auto-configure stacked-vlan-ranges dynamic-profile PPPoE-Base ranges any,any
+set auto-configure stacked-vlan-ranges override
+set auto-configure vlan-ranges dynamic-profile PPPoE-Base accept pppoe
+set auto-configure vlan-ranges dynamic-profile PPPoE-Base ranges any
+set auto-configure vlan-ranges override
+set auto-configure vlan-ranges access-profile PPPoE-AAA-Profile
+set auto-configure remove-when-no-subscribers
+set encapsulation flexible-ethernet-services
+commit
+run request system reboot
+
+
+
+
+set system ddos-protection protocols pppoe padi bandwidth 25
+set system ddos-protection protocols pppoe padi burst 10
+set system ddos-protection protocols pppoe padi recover-time 10
+set system ddos-protection protocols pppoe padi priority low
+set system ddos-protection protocols pppoe pado bandwidth 25
+set system ddos-protection protocols pppoe pado burst 10
+set system ddos-protection protocols pppoe pado recover-time 10
+set system ddos-protection protocols pppoe pado priority low
+set system ddos-protection protocols pppoe padr bandwidth 25
+set system ddos-protection protocols pppoe padr burst 10
+set system ddos-protection protocols pppoe padr recover-time 10
+set system ddos-protection protocols pppoe padr priority low
+set system ddos-protection protocols pppoe pads bandwidth 25
+set system ddos-protection protocols pppoe pads burst 10
+set system ddos-protection protocols pppoe pads recover-time 10
+set system ddos-protection protocols pppoe pads priority low
+set system ddos-protection protocols pppoe padt bandwidth 25
+set system ddos-protection protocols pppoe padt burst 10
+set system ddos-protection protocols pppoe padt recover-time 10
+set system ddos-protection protocols pppoe padt priority low
+set system ddos-protection protocols dhcpv4 aggregate disable-fpc
+set system ddos-protection protocols dhcpv4 bad-packets disable-fpc
+set system ddos-protection protocols icmp aggregate disable-routing-engine
+set system ddos-protection protocols icmp aggregate disable-fpc
+set system ddos-protection protocols arp aggregate disable-routing-engine
+set system ddos-protection protocols arp aggregate disable-fpc
+set system ddos-protection protocols ttl aggregate disable-routing-engine
+set system ddos-protection protocols ttl aggregate disable-fpc
+set system ddos-protection protocols ntp aggregate disable-fpc
+set system ddos-protection protocols ip-fragments first-fragment disable-fpc
+set system ddos-protection protocols ip-fragments trail-fragment disable-fpc
+
+
+
+
+
+
+
+
+
+
+
+
+```
+
+</body>
+  <topology>
+    <nodes>
+      <node id="1" name="vMX-VCP" type="qemu" template="vmxvcp" image="vmxvcp-17.1R1.8-domestic-VCP" console="telnet" cpu="1" cpulimit="0" ram="2048" ethernet="2" uuid="2a3bf92e-20af-4b55-b200-18f36dfbf388" delay="0" icon="JunipervQFXre.png" config="0" left="567" top="69">
+        <interface id="1" name="em1 / int" type="ethernet" network_id="1"/>
+      </node>
+      <node id="2" name="vMX-VFP" type="qemu" template="vmxvfp" image="vmxvfp-17.1R1.8-domestic-VFP" console="telnet" cpu="3" cpulimit="0" ram="4096" ethernet="12" uuid="d6c98d9f-8e88-4ea1-a446-ce97ca1edc72" delay="0" icon="JunipervQFXpfe.png" config="0" left="568" top="213">
+        <interface id="1" name="em1 / int" type="ethernet" network_id="1"/>
+        <interface id="2" name="em2 / ge-0/0/0" type="ethernet" network_id="5"/>
+        <interface id="3" name="em3 / ge-0/0/1" type="ethernet" network_id="6"/>
+        <interface id="4" name="em4 / ge-0/0/2" type="ethernet" network_id="3"/>
+      </node>
+      <node id="3" name="BGP" type="qemu" template="mikrotik" image="mikrotik-6.47beta8" console="telnet" cpu="1" cpulimit="0" ram="256" ethernet="4" uuid="0100ee44-a0c9-4b90-bf5b-a58617b99e35" delay="0" icon="Router.png" config="1" left="558" top="414">
+        <interface id="0" name="eth1" type="ethernet" network_id="9"/>
+        <interface id="1" name="eth2" type="ethernet" network_id="6"/>
+        <interface id="2" name="eth3" type="ethernet" network_id="4"/>
+        <interface id="3" name="eth4" type="ethernet" network_id="8"/>
+      </node>
+      <node id="4" name="CGNat" type="qemu" template="mikrotik" image="mikrotik-6.47beta8" console="telnet" cpu="1" cpulimit="0" ram="256" ethernet="4" uuid="6336618e-fbb5-403e-a7fa-8fe3ba17202c" delay="0" icon="stealthfc.png" config="1" left="288" top="225">
+        <interface id="1" name="eth2" type="ethernet" network_id="5"/>
+        <interface id="2" name="eth3" type="ethernet" network_id="4"/>
+      </node>
+      <node id="5" name="CPE" type="qemu" template="mikrotik" image="mikrotik-6.47beta8" console="telnet" cpu="1" cpulimit="0" ram="256" ethernet="4" uuid="86c42990-f6f7-4a72-84f8-758b4eb872c8" delay="0" icon="Router.png" config="1" left="867" top="249">
+        <interface id="0" name="eth1" type="ethernet" network_id="7"/>
+        <interface id="1" name="eth2" type="ethernet" network_id="3"/>
+      </node>
+      <node id="6" name="FreeRadius" type="qemu" template="linux" image="linux-FreeRadiusRoot.eve" console="telnet" cpu="1" cpulimit="0" ram="2048" ethernet="2" uuid="01a764a0-a676-40ae-be9b-a8f3d64cb1c1" firstmac="00:50:00:00:06:00" delay="0" icon="ERP64x64.png" config="0" left="906" top="408">
+        <interface id="0" name="e0" type="ethernet" network_id="8"/>
+        <interface id="1" name="e1" type="ethernet" network_id="2"/>
+      </node>
+      <node id="7" name="CPE2" type="qemu" template="mikrotik" image="mikrotik-6.47beta8" console="telnet" cpu="1" cpulimit="0" ram="256" ethernet="4" uuid="41251211-eb6a-4c79-986b-a0ba4b465fa7" delay="0" icon="Router.png" config="0" left="867" top="156">
+        <interface id="0" name="eth1" type="ethernet" network_id="7"/>
+        <interface id="1" name="eth2" type="ethernet" network_id="3"/>
+      </node>
+    </nodes>
+    <networks>
+      <network id="1" type="bridge" name="Net-vMX-VFPiface_1" left="522" top="240" visibility="0"/>
+      <network id="2" type="pnet0" name="Console" left="1005" top="408" visibility="1"/>
+      <network id="5" type="bridge" name="Net-Mikrotik4iface_1" left="456" top="352" visibility="0"/>
+      <network id="6" type="bridge" name="Net-Mikrotik3iface_1" left="807" top="355" visibility="0"/>
+      <network id="8" type="bridge" name="Net-Linuxiface_0" left="699" top="643" visibility="0"/>
+      <network id="4" type="bridge" name="NetNat" left="290" top="423" visibility="0"/>
+      <network id="3" type="bridge" name="RedeAcesso" left="717" top="225" visibility="1"/>
+      <network id="7" type="pnet0" name="Console" left="993" top="207" visibility="1"/>
+      <network id="9" type="pnet0" name="Internet" left="363" top="417" visibility="1"/>
+    </networks>
+  </topology>
+  <objects>
+    <textobjects>
+      <textobject id="1" name="txt 1" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDEiIGNsYXNzPSJjdXN0b21TaGFwZSBjdXN0b21UZXh0IGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSIxIiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDI3M3B4OyB0b3A6IDMwNnB4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IGhlaWdodDogMjVweDsgd2lkdGg6IDg3cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246IHRvcDsgY29sb3I6IHJnYigwLCAwLCAwKTsgYmFja2dyb3VuZC1jb2xvcjogcmdiKDI1NSwgMjU1LCAyNTUpOyBmb250LXNpemU6IDEyLjVweDsgZm9udC13ZWlnaHQ6IG5vcm1hbDsiPiAxMC4xLjEuMS8zMDwvcD48ZGl2IGNsYXNzPSJ1aS1yZXNpemFibGUtaGFuZGxlIHVpLXJlc2l6YWJsZS1lIiBzdHlsZT0iei1pbmRleDogOTA7Ij48L2Rpdj48ZGl2IGNsYXNzPSJ1aS1yZXNpemFibGUtaGFuZGxlIHVpLXJlc2l6YWJsZS1zIiBzdHlsZT0iei1pbmRleDogOTA7Ij48L2Rpdj48ZGl2IGNsYXNzPSJ1aS1yZXNpemFibGUtaGFuZGxlIHVpLXJlc2l6YWJsZS1zZSB1aS1pY29uIHVpLWljb24tZ3JpcHNtYWxsLWRpYWdvbmFsLXNlIiBzdHlsZT0iei1pbmRleDogOTA7Ij48L2Rpdj48L2Rpdj4=</data>
+      </textobject>
+      <textobject id="2" name="txt 2" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDIiIGNsYXNzPSJjdXN0b21TaGFwZSBjdXN0b21UZXh0IGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIGp0ay1kcmFnLXNlbGVjdGVkIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSIyIiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDQ5MnB4OyB0b3A6IDIxNnB4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IGhlaWdodDogMjFweDsgd2lkdGg6IDY0cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246dG9wO2NvbG9yOiMwMDAwMDA7YmFja2dyb3VuZC1jb2xvcjojZmZmZmZmO2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OiBub3JtYWw7Ij4xMC4xLjEuMi8zMCAgICAgICAgPC9wPjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLWUiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXMiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXNlIHVpLWljb24gdWktaWNvbi1ncmlwc21hbGwtZGlhZ29uYWwtc2UiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjwvZGl2Pg==</data>
+      </textobject>
+      <textobject id="3" name="txt 3" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDMiIGNsYXNzPSJjdXN0b21TaGFwZSBjdXN0b21UZXh0IGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSIzIiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDM1NHB4OyB0b3A6IDIxOXB4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IGhlaWdodDogMjFweDsgd2lkdGg6IDY0cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246dG9wO2NvbG9yOiMwMDAwMDA7YmFja2dyb3VuZC1jb2xvcjojZmZmZmZmO2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OiBub3JtYWw7Ij4xMC4yLjEuMS8zMCAgICAgICAgPC9wPjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLWUiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXMiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXNlIHVpLWljb24gdWktaWNvbi1ncmlwc21hbGwtZGlhZ29uYWwtc2UiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjwvZGl2Pg==</data>
+      </textobject>
+      <textobject id="4" name="txt 4" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDQiIGNsYXNzPSJjdXN0b21TaGFwZSBjdXN0b21UZXh0IGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIGp0ay1kcmFnLXNlbGVjdGVkIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSI0IiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDQ0NHB4OyB0b3A6IDM5OXB4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IGhlaWdodDogMjFweDsgd2lkdGg6IDY0cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246dG9wO2NvbG9yOiMwMDAwMDA7YmFja2dyb3VuZC1jb2xvcjojZmZmZmZmO2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OiBub3JtYWw7Ij4xMC4yLjEuMi8zMCAgICAgICA8L3A+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtZSIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtcyIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtc2UgdWktaWNvbiB1aS1pY29uLWdyaXBzbWFsbC1kaWFnb25hbC1zZSIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PC9kaXY+</data>
+      </textobject>
+      <textobject id="5" name="txt 5" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDUiIGNsYXNzPSJjdXN0b21TaGFwZSBjdXN0b21UZXh0IGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIGp0ay1kcmFnLXNlbGVjdGVkIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSI1IiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDUzMXB4OyB0b3A6IDM2M3B4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IGhlaWdodDogMjFweDsgd2lkdGg6IDY0cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246dG9wO2NvbG9yOiMwMDAwMDA7YmFja2dyb3VuZC1jb2xvcjojZmZmZmZmO2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OiBub3JtYWw7Ij4xMC4zLjEuMS8zMCAgICAgICAgPC9wPjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLWUiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXMiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXNlIHVpLWljb24gdWktaWNvbi1ncmlwc21hbGwtZGlhZ29uYWwtc2UiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjwvZGl2Pg==</data>
+      </textobject>
+      <textobject id="6" name="txt 6" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDYiIGNsYXNzPSJjdXN0b21TaGFwZSBjdXN0b21UZXh0IGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIGp0ay1kcmFnLXNlbGVjdGVkIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSI2IiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDQ5MnB4OyB0b3A6IDI5NHB4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IGhlaWdodDogMjFweDsgd2lkdGg6IDY0cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246dG9wO2NvbG9yOiMwMDAwMDA7YmFja2dyb3VuZC1jb2xvcjojZmZmZmZmO2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OiBub3JtYWw7Ij4xMC4zLjEuMi8zMCAgICAgICAgPC9wPjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLWUiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXMiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXNlIHVpLWljb24gdWktaWNvbi1ncmlwc21hbGwtZGlhZ29uYWwtc2UiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjwvZGl2Pg==</data>
+      </textobject>
+      <textobject id="8" name="txt 8" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDgiIGNsYXNzPSJjdXN0b21TaGFwZSBjdXN0b21UZXh0IGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSI4IiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDU2N3B4OyB0b3A6IDQ4MHB4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IGhlaWdodDogMjFweDsgd2lkdGg6IDY0cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246dG9wO2NvbG9yOiMwMDAwMDA7YmFja2dyb3VuZC1jb2xvcjojZmZmZmZmO2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OiBub3JtYWw7Ij4xMC40LjEuMS8zMCAgICAgICAgPC9wPjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLWUiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXMiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXNlIHVpLWljb24gdWktaWNvbi1ncmlwc21hbGwtZGlhZ29uYWwtc2UiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjwvZGl2Pg==</data>
+      </textobject>
+      <textobject id="9" name="txt 9" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDkiIGNsYXNzPSJjdXN0b21TaGFwZSBjdXN0b21UZXh0IGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIGp0ay1kcmFnLXNlbGVjdGVkIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSI5IiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDgyOHB4OyB0b3A6IDQ3NHB4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IGhlaWdodDogMjFweDsgd2lkdGg6IDY0cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246dG9wO2NvbG9yOiMwMDAwMDA7YmFja2dyb3VuZC1jb2xvcjojZmZmZmZmO2ZvbnQtc2l6ZToxMnB4O2ZvbnQtd2VpZ2h0OiBub3JtYWw7Ij4xMC40LjEuMi8zMCAgICAgICAgPC9wPjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLWUiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXMiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXNlIHVpLWljb24gdWktaWNvbi1ncmlwc21hbGwtZGlhZ29uYWwtc2UiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjwvZGl2Pg==</data>
+      </textobject>
+      <textobject id="10" name="txt 10" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDEwIiBjbGFzcz0iY3VzdG9tU2hhcGUgY3VzdG9tVGV4dCBjb250ZXh0LW1lbnUganRrLWRyYWdnYWJsZSB1aS1zZWxlY3RlZSBqdGstZHJhZy1zZWxlY3RlZCBmcmVlLXNlbGVjdGVkIGRyYWdzdG9wcGVkIiBkYXRhLXBhdGg9IjEwIiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDg1MnB4OyB0b3A6IDQ4NnB4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IGhlaWdodDogNDhweDsgd2lkdGg6IDE5M3B4OyI+PHAgYWxpZ249ImNlbnRlciIgc3R5bGU9InZlcnRpY2FsLWFsaWduOiB0b3A7IGNvbG9yOiByZ2IoNjQsIDAsIDApOyBiYWNrZ3JvdW5kLWNvbG9yOiByZ2JhKDI1NSwgMjU1LCAyNTUsIDApOyBmb250LXNpemU6IDEycHg7IGZvbnQtd2VpZ2h0OiBib2xkOyIgY29udGVudGVkaXRhYmxlPSJmYWxzZSIgY2xhc3M9IiI+aXAvcGhwbXlhZG1pbjxicj51c2VyIHJhZGl1czxicj5zZW5oYSBTRU5IQS1ETy1VU0VSLVJBRElVUzwvcD48L2Rpdj4=</data>
+      </textobject>
+      <textobject id="13" name="square13" type="square">
+        <data>PGRpdiBpZD0iY3VzdG9tU2hhcGUxMyIgY2xhc3M9ImN1c3RvbVNoYXBlIGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSIxMyIgc3R5bGU9ImRpc3BsYXk6IGlubGluZTsgei1pbmRleDogOTk5OyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDQ0MXB4OyB0b3A6IDIxcHg7IHdpZHRoOiAzMTVweDsgaGVpZ2h0OiAzMThweDsiIHdpZHRoPSIxMjBweCIgaGVpZ2h0PSIxMjBweCIgbmFtZT0ic3F1YXJlMTMiPjxzdmcgd2lkdGg9IjMxNSIgaGVpZ2h0PSIzMTQiPjxyZWN0IHdpZHRoPSIzMTUiIGhlaWdodD0iMzE0IiBmaWxsPSIjODA4MDQwIiBzdHJva2Utd2lkdGg9IjUiIHN0cm9rZT0iIzgwMDAwMCIgIj0iIj48L3JlY3Q+U29ycnksIHlvdXIgYnJvd3NlciBkb2VzIG5vdCBzdXBwb3J0IGlubGluZSBTVkcuPC9zdmc+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtZSIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtcyIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtc2UgdWktaWNvbiB1aS1pY29uLWdyaXBzbWFsbC1kaWFnb25hbC1zZSIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PC9kaXY+</data>
+      </textobject>
+      <textobject id="14" name="txt 14" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDE0IiBjbGFzcz0iY3VzdG9tU2hhcGUgY3VzdG9tVGV4dCBjb250ZXh0LW1lbnUganRrLWRyYWdnYWJsZSIgZGF0YS1wYXRoPSIxNCIgc3R5bGU9ImRpc3BsYXk6IGlubGluZTsgcG9zaXRpb246IGFic29sdXRlOyBsZWZ0OiA0OTVweDsgdG9wOiAyN3B4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IHdpZHRoOiAyMTIuMDQ3cHg7IGhlaWdodDogNTVweDsiPjxwIGFsaWduPSJjZW50ZXIiIHN0eWxlPSJ2ZXJ0aWNhbC1hbGlnbjogdG9wOyBjb2xvcjogcmdiKDY0LCAwLCAwKTsgYmFja2dyb3VuZC1jb2xvcjogcmdiYSgyNTUsIDI1NSwgMjU1LCAwKTsgZm9udC1zaXplOiAyNy41cHg7IGZvbnQtd2VpZ2h0OiBib2xkOyI+UFBQb0UgU2VydmVyICAgICAgICA8L3A+PC9kaXY+</data>
+      </textobject>
+      <textobject id="15" name="txt 15" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDE1IiBjbGFzcz0iY3VzdG9tU2hhcGUgY3VzdG9tVGV4dCBjb250ZXh0LW1lbnUganRrLWRyYWdnYWJsZSB1aS1yZXNpemFibGUgZHJhZ3N0b3BwZWQiIGRhdGEtcGF0aD0iMTUiIHN0eWxlPSJkaXNwbGF5OiBpbmxpbmU7IHBvc2l0aW9uOiBhYnNvbHV0ZTsgbGVmdDogNjk2cHg7IHRvcDogMTg2cHg7IGN1cnNvcjogbW92ZTsgei1pbmRleDogMTAwMTsiPjxwIGFsaWduPSJjZW50ZXIiIHN0eWxlPSJ2ZXJ0aWNhbC1hbGlnbjp0b3A7Y29sb3I6IzAwMDAwMDtiYWNrZ3JvdW5kLWNvbG9yOiNmZmZmZmY7Zm9udC1zaXplOjEycHg7Zm9udC13ZWlnaHQ6IG5vcm1hbDsiPlZsYW4gMTAwMCAtIERpbmFtaWNvPGJyPlZsYW4gMjAwMCAtIEVzdGF0aWNvICAgICAgICA8L3A+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtZSIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtcyIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtc2UgdWktaWNvbiB1aS1pY29uLWdyaXBzbWFsbC1kaWFnb25hbC1zZSIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PC9kaXY+</data>
+      </textobject>
+      <textobject id="16" name="square13" type="square">
+        <data>PGRpdiBpZD0iY3VzdG9tU2hhcGUxNiIgY2xhc3M9ImN1c3RvbVNoYXBlIGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXJlc2l6YWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSIxNiIgc3R5bGU9ImRpc3BsYXk6IGlubGluZTsgei1pbmRleDogOTk5OyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDIwNHB4OyB0b3A6IDIxcHg7IHdpZHRoOiAyMzNweDsgaGVpZ2h0OiAzMTRweDsiIHdpZHRoPSIxMjBweCIgaGVpZ2h0PSIxMjBweCIgbmFtZT0ic3F1YXJlMTMiPjxzdmcgd2lkdGg9IjIzMyIgaGVpZ2h0PSIzMTQiPjxyZWN0IHdpZHRoPSIyMzMiIGhlaWdodD0iMzE0IiBmaWxsPSIjODA4MDQwIiBzdHJva2Utd2lkdGg9IjUiIHN0cm9rZT0iIzgwMDAwMCIgIj0iIj48L3JlY3Q+U29ycnksIHlvdXIgYnJvd3NlciBkb2VzIG5vdCBzdXBwb3J0IGlubGluZSBTVkcuPC9zdmc+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtZSIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtcyIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PGRpdiBjbGFzcz0idWktcmVzaXphYmxlLWhhbmRsZSB1aS1yZXNpemFibGUtc2UgdWktaWNvbiB1aS1pY29uLWdyaXBzbWFsbC1kaWFnb25hbC1zZSIgc3R5bGU9InotaW5kZXg6IDkwOyI+PC9kaXY+PC9kaXY+</data>
+      </textobject>
+      <textobject id="17" name="txt 17" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDE3IiBjbGFzcz0iY3VzdG9tU2hhcGUgY3VzdG9tVGV4dCBjb250ZXh0LW1lbnUganRrLWRyYWdnYWJsZSB1aS1zZWxlY3RlZSIgZGF0YS1wYXRoPSIxNyIgc3R5bGU9ImRpc3BsYXk6IGlubGluZTsgcG9zaXRpb246IGFic29sdXRlOyBsZWZ0OiAyOTRweDsgdG9wOiAzM3B4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IHdpZHRoOiA4OXB4OyBoZWlnaHQ6IDU1cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246IHRvcDsgY29sb3I6IHJnYig2NCwgMCwgMCk7IGJhY2tncm91bmQtY29sb3I6IHJnYmEoMjU1LCAyNTUsIDI1NSwgMCk7IGZvbnQtc2l6ZTogMjcuNXB4OyBmb250LXdlaWdodDogYm9sZDsiIGNvbnRlbnRlZGl0YWJsZT0iZmFsc2UiIGNsYXNzPSIiPkNHTmF0PC9wPjwvZGl2Pg==</data>
+      </textobject>
+      <textobject id="18" name="square13" type="square">
+        <data>PGRpdiBpZD0iY3VzdG9tU2hhcGUxOCIgY2xhc3M9ImN1c3RvbVNoYXBlIGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIiBkYXRhLXBhdGg9IjE4IiBzdHlsZT0iZGlzcGxheTogaW5saW5lOyB6LWluZGV4OiA5OTk7IHBvc2l0aW9uOiBhYnNvbHV0ZTsgbGVmdDogNzU5cHg7IHRvcDogMjFweDsgd2lkdGg6IDMxNXB4OyBoZWlnaHQ6IDMxOHB4OyIgd2lkdGg9IjEyMHB4IiBoZWlnaHQ9IjEyMHB4IiBuYW1lPSJzcXVhcmUxMyI+PHN2ZyB3aWR0aD0iMzE1IiBoZWlnaHQ9IjMxNCI+PHJlY3Qgd2lkdGg9IjMxNSIgaGVpZ2h0PSIzMTQiIGZpbGw9IiMwMDgwYzAiIHN0cm9rZS13aWR0aD0iNSIgc3Ryb2tlPSIjODAwMDAwIiAiPSIiPjwvcmVjdD5Tb3JyeSwgeW91ciBicm93c2VyIGRvZXMgbm90IHN1cHBvcnQgaW5saW5lIFNWRy48L3N2Zz48L2Rpdj4=</data>
+      </textobject>
+      <textobject id="19" name="txt 19" type="text">
+        <data>PGRpdiBpZD0iY3VzdG9tVGV4dDE5IiBjbGFzcz0iY3VzdG9tU2hhcGUgY3VzdG9tVGV4dCBjb250ZXh0LW1lbnUganRrLWRyYWdnYWJsZSBkcmFnc3RvcHBlZCIgZGF0YS1wYXRoPSIxOSIgc3R5bGU9ImRpc3BsYXk6IGlubGluZTsgcG9zaXRpb246IGFic29sdXRlOyBsZWZ0OiA4MjhweDsgdG9wOiAzM3B4OyBjdXJzb3I6IG1vdmU7IHotaW5kZXg6IDEwMDE7IHdpZHRoOiBhdXRvOyBoZWlnaHQ6IDU1cHg7Ij48cCBhbGlnbj0iY2VudGVyIiBzdHlsZT0idmVydGljYWwtYWxpZ246IHRvcDsgY29sb3I6IHJnYigxMjgsIDAsIDApOyBiYWNrZ3JvdW5kLWNvbG9yOiByZ2JhKDI1NSwgMjU1LCAyNTUsIDApOyBmb250LXNpemU6IDI3LjVweDsgZm9udC13ZWlnaHQ6IGJvbGQ7IiBjb250ZW50ZWRpdGFibGU9ImZhbHNlIiBjbGFzcz0iIj5SZWRlIENsaWVudGU8L3A+PC9kaXY+</data>
+      </textobject>
+      <textobject id="20" name="square13" type="square">
+        <data>PGRpdiBpZD0iY3VzdG9tU2hhcGUyMCIgY2xhc3M9ImN1c3RvbVNoYXBlIGNvbnRleHQtbWVudSBqdGstZHJhZ2dhYmxlIHVpLXNlbGVjdGVlIHVpLXJlc2l6YWJsZSIgZGF0YS1wYXRoPSIyMCIgc3R5bGU9ImRpc3BsYXk6IGlubGluZTsgei1pbmRleDogOTk5OyBwb3NpdGlvbjogYWJzb2x1dGU7IGxlZnQ6IDIwNHB4OyB0b3A6IDMzOXB4OyB3aWR0aDogODcwcHg7IGhlaWdodDogMjE2cHg7IiB3aWR0aD0iMTIwcHgiIGhlaWdodD0iMTIwcHgiIG5hbWU9InNxdWFyZTEzIj48c3ZnIHdpZHRoPSI4NzAiIGhlaWdodD0iMjEyIj48cmVjdCB3aWR0aD0iODcwIiBoZWlnaHQ9IjIxMiIgZmlsbD0iIzgwODA0MCIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2U9IiM4MDAwMDAiICI9IiI+PC9yZWN0PlNvcnJ5LCB5b3VyIGJyb3dzZXIgZG9lcyBub3Qgc3VwcG9ydCBpbmxpbmUgU1ZHLjwvc3ZnPjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLWUiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXMiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjxkaXYgY2xhc3M9InVpLXJlc2l6YWJsZS1oYW5kbGUgdWktcmVzaXphYmxlLXNlIHVpLWljb24gdWktaWNvbi1ncmlwc21hbGwtZGlhZ29uYWwtc2UiIHN0eWxlPSJ6LWluZGV4OiA5MDsiPjwvZGl2PjwvZGl2Pg==</data>
+      </textobject>
+    </textobjects>
+    <configs>
+      <config id="3">IyBtYXkvMDMvMjAyMCAxNjo0NDozNiBieSBSb3V0ZXJPUyA2LjQ3YmV0YTgKIyBzb2Z0d2FyZSBpZCA9IAojCiMKIwovaW50ZXJmYWNlIHdpcmVsZXNzIHNlY3VyaXR5LXByb2ZpbGVzCnNldCBbIGZpbmQgZGVmYXVsdD15ZXMgXSBzdXBwbGljYW50LWlkZW50aXR5PU1pa3JvVGlrCi9yb3V0aW5nIG9zcGYtdjMgaW5zdGFuY2UKc2V0IFsgZmluZCBkZWZhdWx0PXllcyBdIHJlZGlzdHJpYnV0ZS1jb25uZWN0ZWQ9YXMtdHlwZS0xIHJlZGlzdHJpYnV0ZS1zdGF0aWM9YXMtdHlwZS0xIHJvdXRlci1pZD0wLjAuMC4xNQovaXAgYWRkcmVzcwphZGQgYWRkcmVzcz0xMC4yLjEuMi8zMCBpbnRlcmZhY2U9ZXRoZXIzIG5ldHdvcms9MTAuMi4xLjAKYWRkIGFkZHJlc3M9MTAuMy4xLjEvMzAgaW50ZXJmYWNlPWV0aGVyMiBuZXR3b3JrPTEwLjMuMS4wCmFkZCBhZGRyZXNzPTEwLjQuMS4xLzMwIGludGVyZmFjZT1ldGhlcjQgbmV0d29yaz0xMC40LjEuMAovaXAgZGhjcC1jbGllbnQKYWRkIGRpc2FibGVkPW5vIGludGVyZmFjZT1ldGhlcjEKL2lwIGZpcmV3YWxsIG5hdAphZGQgYWN0aW9uPW1hc3F1ZXJhZGUgY2hhaW49c3JjbmF0IG91dC1pbnRlcmZhY2U9ZXRoZXIxCi9pcHY2IGFkZHJlc3MKYWRkIGZyb20tcG9vbD1wb29sIGludGVyZmFjZT1ldGhlcjIKL2lwdjYgZGhjcC1jbGllbnQKYWRkIGFkZC1kZWZhdWx0LXJvdXRlPXllcyBpbnRlcmZhY2U9ZXRoZXIxIHBvb2wtbmFtZT1wb29sIHJlcXVlc3Q9cHJlZml4Ci9yb3V0aW5nIG9zcGYgbmV0d29yawphZGQgYXJlYT1iYWNrYm9uZSBuZXR3b3JrPTEwLjIuMS4wLzMwCmFkZCBhcmVhPWJhY2tib25lIG5ldHdvcms9MTAuMy4xLjAvMzAKYWRkIGFyZWE9YmFja2JvbmUgbmV0d29yaz0xMC40LjEuMC8zMAovcm91dGluZyBvc3BmLXYzIGludGVyZmFjZQphZGQgYXJlYT1iYWNrYm9uZSBpbnRlcmZhY2U9ZXRoZXIxCmFkZCBhcmVhPWJhY2tib25lIGludGVyZmFjZT1ldGhlcjIgbmV0d29yay10eXBlPXBvaW50LXRvLXBvaW50Ci9zeXN0ZW0gaWRlbnRpdHkKc2V0IG5hbWU9QkdQCg==</config>
+      <config id="4">IyBtYXkvMDMvMjAyMCAxNjo0NDo0NyBieSBSb3V0ZXJPUyA2LjQ3YmV0YTgNCiMgc29mdHdhcmUgaWQgPSANCiMNCiMNCiMNCi9pbnRlcmZhY2Ugd2lyZWxlc3Mgc2VjdXJpdHktcHJvZmlsZXMNCnNldCBbIGZpbmQgZGVmYXVsdD15ZXMgXSBzdXBwbGljYW50LWlkZW50aXR5PU1pa3JvVGlrDQovaXAgYWRkcmVzcw0KYWRkIGFkZHJlc3M9MTAuMS4xLjEvMzAgaW50ZXJmYWNlPWV0aGVyMiBuZXR3b3JrPTEwLjEuMS4wDQphZGQgYWRkcmVzcz0xMC4yLjEuMS8zMCBpbnRlcmZhY2U9ZXRoZXIzIG5ldHdvcms9MTAuMi4xLjANCi9pcCBkaGNwLWNsaWVudA0KYWRkIGRpc2FibGVkPW5vIGludGVyZmFjZT1ldGhlcjENCi9pcCByb3V0ZQ0KYWRkIGNoZWNrLWdhdGV3YXk9cGluZyBkaXN0YW5jZT0xIGdhdGV3YXk9MTAuMi4xLjINCi9yb3V0aW5nIG9zcGYgbmV0d29yaw0KYWRkIGFyZWE9YmFja2JvbmUgbmV0d29yaz0xMC4xLjEuMC8zMA0KYWRkIGFyZWE9YmFja2JvbmUgbmV0d29yaz0xMC4yLjEuMC8zMA0KL3N5c3RlbSBpZGVudGl0eQ0Kc2V0IG5hbWU9Q0dOYXQNCg==</config>
+      <config id="5">IyBtYXkvMDMvMjAyMCAxNjo0NTowMSBieSBSb3V0ZXJPUyA2LjQ3YmV0YTgNCiMgc29mdHdhcmUgaWQgPSANCiMNCiMNCiMNCi9pbnRlcmZhY2Ugdmxhbg0KYWRkIGludGVyZmFjZT1ldGhlcjIgbmFtZT12bGFuMSB2bGFuLWlkPTEwMDANCi9pbnRlcmZhY2UgcHBwb2UtY2xpZW50DQphZGQgZGlzYWJsZWQ9bm8gaW50ZXJmYWNlPXZsYW4xIG5hbWU9cHBwb2Utb3V0MSBwYXNzd29yZD10ZXN0ZTEgdXNlcj10ZXN0ZTENCmFkZCBkaXNhYmxlZD1ubyBpbnRlcmZhY2U9dmxhbjEgbmFtZT1wcHBvZS1vdXQyIHBhc3N3b3JkPXRlc3RlMiB1c2VyPXRlc3RlMg0KL2ludGVyZmFjZSB3aXJlbGVzcyBzZWN1cml0eS1wcm9maWxlcw0Kc2V0IFsgZmluZCBkZWZhdWx0PXllcyBdIHN1cHBsaWNhbnQtaWRlbnRpdHk9TWlrcm9UaWsNCi9yb3V0aW5nIG9zcGYtdjMgaW5zdGFuY2UNCnNldCBbIGZpbmQgZGVmYXVsdD15ZXMgXSByZWRpc3RyaWJ1dGUtY29ubmVjdGVkPWFzLXR5cGUtMQ0KL2lwIGRoY3AtY2xpZW50DQphZGQgZGlzYWJsZWQ9bm8gaW50ZXJmYWNlPWV0aGVyMQ0KL2lwdjYgYWRkcmVzcw0KYWRkIGZyb20tcG9vbD1pcHY2IGludGVyZmFjZT1ldGhlcjINCi9pcHY2IGRoY3AtY2xpZW50DQphZGQgYWRkLWRlZmF1bHQtcm91dGU9eWVzIGludGVyZmFjZT1wcHBvZS1vdXQxIHBvb2wtbmFtZT1pcHY2IHJlcXVlc3Q9cHJlZml4DQphZGQgYWRkLWRlZmF1bHQtcm91dGU9eWVzIGRpc2FibGVkPXllcyBpbnRlcmZhY2U9ZXRoZXIxIHBvb2wtbmFtZT1hY2Vzc28gcmVxdWVzdD1wcmVmaXgNCg==</config>
+    </configs>
+  </objects>
+  <objects/>
+</lab>
