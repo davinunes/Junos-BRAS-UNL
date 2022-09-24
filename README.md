@@ -4,6 +4,8 @@
 
 Este laboratório está focado em Junos e todas as tarefas estão voltadas principalmente para juniper, portanto, os demais componentes do LAB estão somente para simular a conectividade que envolve um BRAS.
 
+Foi utilizada a imagem para eve-ng **18.1R3.3**
+
 Sendo assim, o BGP, a CPE do cliente e CGNAT estão representados por imagens Mikrotik, que farão o trabalho simplificado.
 Alguns equipamentos estão com uma porta conectada a uma Nuvem chamada **Console**, com a finalidade de facilitar o gerenciamento do equipamento através do emulador.
 
@@ -20,6 +22,13 @@ set interfaces fxp0 description "Interface de Gerencia"
 set interfaces fxp0 unit 0 family inet address 192.168.3.2/24
 commit
 ```
+
+Desabilite o Auto upgrade para o log parar de perturbar:
+```
+delete chassis auto-image-upgrade
+commit
+```
+
  * Configure um usuário e habilite o acesso SSH. Ao colar códigos no terminal, o console SSH suporta mais caracteres de entrada que o console serial, facilitando o desempenho do LAB.
 
 ```
@@ -30,9 +39,9 @@ commit
 ## senha de root: aluno123
 ## senha do usuario aluno: aluno123
 deactivate system syslog user *
-set system root-authentication encrypted-password "$6$AdGIwxtT$HiMERKGwSlaZVIDj8YcN4wKI2JcB822h0/XGimLKnCK7x32Y5gEAdbx2xsfmAQ57.UsPwbYjAVeVnexhEj6Yf."
+set system root-authentication encrypted-password "$6$mZGVHOTD$TAjKwQNCfuO8N3BK"
 set system login user aluno class super-user
-set system login user aluno authentication encrypted-password "$6$X51ZaE4H$i49ODzPDNH6PonaRC2CAnQBNiFopFFr7SPUkDo1NLpgysy6NiY2qHLy0LeSux74uLtt2K1Fjwy0HT7I6HCnp4/"
+set system login user aluno authentication encrypted-password "$6$wPea7W47$9B78"
 set system services ssh
 commit
 ######################################
