@@ -6,6 +6,7 @@ Este laboratório está focado em Junos e todas as tarefas estão voltadas princ
 
 Foi utilizada a imagem para eve-ng **18.1R3.3**
 
+![](img/Screenshot_1.png)
 Sendo assim, o BGP, a CPE do cliente e CGNAT estão representados por imagens Mikrotik, que farão o trabalho simplificado.
 Alguns equipamentos estão com uma porta conectada a uma Nuvem chamada **Console**, com a finalidade de facilitar o gerenciamento do equipamento através do emulador.
 
