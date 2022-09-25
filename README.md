@@ -151,8 +151,8 @@ Dito isto, neste exemplo vamos trabalhar com dois métodos de perfil dinâmico, 
 top edit access profile PPPoE-AAA-Profile
 set authentication-order radius
 set domain-name-server 8.8.8.8
-set radius authentication-server 177.67.96.253 
-set radius accounting-server 177.67.96.253
+set radius authentication-server 10.4.1.2 
+set radius accounting-server 10.4.1.2
 set radius options nas-port-extended-format slot-width 5
 set radius options nas-port-extended-format adapter-width 1
 set radius options nas-port-extended-format port-width 3
