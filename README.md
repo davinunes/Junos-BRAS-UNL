@@ -118,12 +118,14 @@ commit
 
 ```
 set system services subscriber-management enable
+commit
+run request system reboot
+
 set chassis network-services enhanced-ip
 set system configuration-database virtual-memory-mapping process-set subscriber-management fixed-size 52500
 set system configuration-database virtual-memory-mapping process-set subscriber-management page-pooling-size 22500
 set system configuration-database max-db-size 104857600
 commit
-run request system reboot
 ```
 
 * O Junos vai autenticar em um servidor Radius, portanto, vamos confiurar a conexão com Radius
