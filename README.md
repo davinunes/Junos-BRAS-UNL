@@ -132,13 +132,13 @@ commit
 
 ```
 ## IP do Servidor Radius
-top edit access radius-server 177.67.96.253
+top edit access radius-server 10.4.1.2
 set port 1812
 set accounting-port 1813
 ## senha do nas
-set secret niq_789658
+set secret radius
 top set access radius-disconnect-port 3799
-top set access radius-disconnect 177.67.96.253
+top set access radius-disconnect 10.4.1.2
 ```
 
 * O Junos trabalha com perfil de autenticação, isto é, perfil de acesso, é possivel utilizar mais de um perfil e, por exemplo, cada grupo de vlan utilizar um perfil diferente. 
