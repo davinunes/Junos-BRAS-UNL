@@ -18,21 +18,21 @@ Como preparação, é preciso inicilizar todos os hosts e então realizar as con
 * Então, use o comando `cli` para entrar no modo de usuário e o comando `configure` para acessar o modo de configuração. 
 * Vamos configurar agora um ip de gerencia na interface **fxp0**, para acessarmos por **ssh** e facilitar as configurações:
 
-```
+```sql
 set interfaces fxp0 description "Interface de Gerencia"
 set interfaces fxp0 unit 0 family inet address 192.168.3.5/24
 commit
 ```
 
 Desabilite o Auto upgrade para o log parar de perturbar:
-```
+```sql
 delete chassis auto-image-upgrade
 commit
 ```
 
  * Configure um usuário e habilite o acesso SSH. Ao colar códigos no terminal, o console SSH suporta mais caracteres de entrada que o console serial, facilitando o desempenho do LAB. Então a ideia é acessar o router via ssh no ip que setamos previamente na interface fxp
 
-```
+```php
 ######################################
 ## Criacao do Usuario e acesso remoto
 ######################################
@@ -45,14 +45,14 @@ set system root-authentication plain-text-password
 ```
 > O comando vai solicitar que crie a senha e confirme
 
-```
+```sql
 set system login user aluno class super-user
 set system login user aluno authentication plain-text-password
 ```
 >Novamente crie a senha do usuario aluno e confirme
 
 Agora ativaremos o serviço ssh:
-```
+```sql
 set system services ssh
 commit
 ```
@@ -60,7 +60,7 @@ commit
 * Agora podemos logar no junos pelo ip de gerencia, que vc deve *adequar* ao seu lab, basta conectar a **fxp0** na nuvem 
 * Já podemos aplicar a licença de teste gratuita no JunOS, válida por 60 dias, que é tempo suficiente para explorar o LAB:
 
-```
+```java
 run request system license add terminal
 ```
 
@@ -98,7 +98,7 @@ E435890758 aeaqic aiagij cpabsc idycyi giydco bqgiyd
 
 * Comandos no Junos:
 
-```
+```sql
 top edit interfaces lo0 unit 0
 set description "LOOPBACK"
 set family inet address 10.0.0.1/32
@@ -116,7 +116,7 @@ commit
 
 * Vamos estabelecer OSPF entre o CGNAT e o BRAS para que conheçam as rotas dos clientes PPPoE
 
-```
+```sql
 top set routing-options router-id 10.0.0.1
 top set protocols ospf area 0.0.0.0 interface ge-0/0/0.0
 top set protocols ospf area 0.0.0.0 interface ge-0/0/1.0
