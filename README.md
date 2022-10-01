@@ -2,9 +2,9 @@
 
 ## Cenário
 
-Este laboratório está focado em Junos e todas as tarefas estão voltadas principalmente para juniper, portanto, os demais componentes do LAB estão somente para simular a conectividade que envolve um BRAS.
+Este laboratório é sobre BRAS/BNG em Junos e todas as tarefas estão voltadas principalmente para juniper, portanto, os demais componentes do LAB estão somente para simular a conectividade que envolve um BRAS, sendo a configuração destes não aprofundada.
 
-Foi utilizada a imagem para eve-ng **18.1R3.3**
+Foi utilizada a imagem para eve-ng do junos  [**18.1R3.3**](https://drive.google.com/drive/folders/11cEkLSjl3mPRLB2FF9Fe0oWUZfxEZKbs?usp=sharing)
 
 ![](img/Screenshot_1.png)
 Sendo assim, o BGP, a CPE do cliente e CGNAT estão representados por imagens Mikrotik, que farão o trabalho simplificado.
@@ -20,7 +20,7 @@ Como preparação, é preciso inicilizar todos os hosts e então realizar as con
 
 ```
 set interfaces fxp0 description "Interface de Gerencia"
-set interfaces fxp0 unit 0 family inet address 192.168.3.2/24
+set interfaces fxp0 unit 0 family inet address 192.168.3.5/24
 commit
 ```
 
@@ -30,7 +30,7 @@ delete chassis auto-image-upgrade
 commit
 ```
 
- * Configure um usuário e habilite o acesso SSH. Ao colar códigos no terminal, o console SSH suporta mais caracteres de entrada que o console serial, facilitando o desempenho do LAB.
+ * Configure um usuário e habilite o acesso SSH. Ao colar códigos no terminal, o console SSH suporta mais caracteres de entrada que o console serial, facilitando o desempenho do LAB. Então a ideia é acessar o router via ssh no ip que setamos previamente na interface fxp
 
 ```
 ######################################
@@ -40,12 +40,21 @@ commit
 ## senha de root: aluno123
 ## senha do usuario aluno: aluno123
 deactivate system syslog user *
-set system root-authentication encrypted-password "$6$mZGVHOTD$TAjKwQNCfuO8N3BK"
+set system root-authentication plain-text-password
+
+```
+> O comando vai solicitar que crie a senha e confirme
+
+```
 set system login user aluno class super-user
-set system login user aluno authentication encrypted-password "$6$wPea7W47$9B78"
+set system login user aluno authentication plain-text-password
+```
+>Novamente crie a senha do usuario aluno e confirme
+
+Agora ativaremos o serviço ssh:
+```
 set system services ssh
 commit
-######################################
 ```
 
 * Agora podemos logar no junos pelo ip de gerencia, que vc deve *adequar* ao seu lab, basta conectar a **fxp0** na nuvem 
@@ -64,7 +73,14 @@ E435890758 aeaqic aiagij cpabsc idycyi giydco bqgiyd
            ya3md2 drdgjf preowc 5ubrju kyq'
 ```
 
+![](img/Screenshot_2.png)
+
 * Podemos verificar a licença com o comando `run show system license`
+
+![](img/Screenshot_3.png)
+
+>como se pode notar, a licença permite 10 assinantes simultaneos, suficientes para um laboratório.
+
 * Configure os IPs nas interfaces para estabelecer conectividade
 
 
