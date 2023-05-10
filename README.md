@@ -152,21 +152,24 @@ Até aqui, Temos os tres roteadores se cominucando. Vamos começar agora a parte
 
 
 
-* Primeiro vamos habilitar o gerenciamento de clientes na caixa. Será necessário reboot após estas configurações:
+* A primeira coisa a fazer é habilitar o gerenciamento de clientes na caixa. Será necessário reboot após estas configurações:
+![](img/aviso-reboot.png)
 
 ```sql
-set system services subscriber-management enable
-commit
-run request system reboot
-
 set chassis network-services enhanced-ip
 set system configuration-database virtual-memory-mapping process-set subscriber-management fixed-size 52500
 set system configuration-database virtual-memory-mapping process-set subscriber-management page-pooling-size 22500
 set system configuration-database max-db-size 104857600
+
+set system services subscriber-management enable
 commit
+
+run request system reboot
 ```
 
-* O Junos vai autenticar em um servidor Radius, portanto, vamos confiurar a conexão com Radius
+> Aguardamos mais uma eternidade para a vm voltar up ^^
+
+* O Junos comumente vai autenticar os usuários consultando um servidor **Radius**, portanto, vamos configurar a conexão com Radius antecipadamente:
 
 ```sql
 ## IP do Servidor Radius
@@ -185,16 +188,25 @@ Dito isto, neste exemplo vamos trabalhar com dois métodos de perfil dinâmico, 
 
 É importante lembrar que é preciso uma licença especial para utilizar o perfil de forma dinamica.
 
-```
+```sql
+# Criamos um perfil de nome "PPPoE-AAA-Profile"
 top edit access profile PPPoE-AAA-Profile
+# Dica: se setarmos para "none" em vez de "radius", o junos irá autenticar qualquer usuario
 set authentication-order radius
 set domain-name-server 8.8.8.8
 set radius authentication-server 10.4.1.2 
 set radius accounting-server 10.4.1.2
+# 
 set radius options nas-port-extended-format slot-width 5
 set radius options nas-port-extended-format adapter-width 1
 set radius options nas-port-extended-format port-width 3
+# Essas linhas formatam como aparece no radius a vlan do cliente:
+set radius options nas-port-id-delimiter -
+set radius options nas-port-id-format postpend-vlan-tags
+set radius options calling-station-id-delimiter :
+set radius options calling-station-id-format mac-address
 set radius options client-authentication-algorithm round-robin
+# 
 set accounting order radius
 set accounting accounting-stop-on-failure
 set accounting accounting-stop-on-access-deny

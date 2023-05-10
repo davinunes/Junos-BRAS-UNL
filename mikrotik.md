@@ -35,15 +35,18 @@ Segue a configuração para BGP utilizada neste LAB
 /ip address add address=10.2.1.2/30 comment=CGNAT interface=ether3 network=10.2.1.0
 /ip address add address=10.3.1.1/30 comment=BNG interface=ether2 network=10.3.1.0
 /ip address add address=10.0.0.1 interface=lo0 network=10.0.0.1
+/ip address add address=10.4.1.1/30 comment=Radius interface=ether4 network=10.4.1.0
 /ip dhcp-client add disabled=no interface=ether1
 /ip firewall nat add action=masquerade chain=srcnat out-interface=ether1
 /ip route add check-gateway=ping comment="rede ASN" distance=1 dst-address=198.18.0.0/15 gateway=10.2.1.1
 /routing ospf interface add interface=ether2 network-type=point-to-point
 /routing ospf interface add interface=ether3 network-type=point-to-point
 /routing ospf interface add interface=lo0 network-type=broadcast passive=yes
+/routing ospf interface add interface=ether4 network-type=broadcast passive=yes
 /routing ospf network add area=backbone network=10.3.1.0/30
 /routing ospf network add area=backbone network=10.0.0.1/32
 /routing ospf network add area=backbone network=10.2.1.0/30
+/routing ospf network add area=backbone network=10.4.1.0/30
 /system identity set name=BGP
 ```
 > Note que ambos BGP e CGNAT são meramente simbólicos
