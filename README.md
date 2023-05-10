@@ -4,41 +4,50 @@
 
 Este laboratório é sobre BRAS/BNG em Junos e todas as tarefas estão voltadas principalmente para juniper, portanto, os demais componentes do LAB estão somente para simular a conectividade que envolve um BRAS, sendo a configuração destes não aprofundada.
 
-Foi utilizada a imagem para eve-ng do junos  [**18.1R3.3**](https://drive.google.com/drive/folders/11cEkLSjl3mPRLB2FF9Fe0oWUZfxEZKbs?usp=sharing)
+Foi utilizada a imagem para eve-ng do junos  [**17.1R1.8**](https://drive.google.com/drive/folders/11cEkLSjl3mPRLB2FF9Fe0oWUZfxEZKbs?usp=sharing)
 
-![](img/Screenshot_1.png)
-Sendo assim, o BGP, a CPE do cliente e CGNAT estão representados por imagens Mikrotik, que farão o trabalho simplificado.
-Alguns equipamentos estão com uma porta conectada a uma Nuvem chamada **Console**, com a finalidade de facilitar o gerenciamento do equipamento através do emulador.
+![](img/topologia.png)
+Sendo assim, o BGP, a CPE do cliente e CGNAT estão representados por imagens Mikrotik, que farão o trabalho  simplificado para simbolizar os demais atores de uma rede.
+
+Alguns equipamentos estão com uma interface conectada a uma Nuvem chamada **Console**, com a finalidade de facilitar o gerenciamento do equipamento através do emulador.
 
 Como preparação, é preciso inicilizar todos os hosts e então realizar as configurações básicas, a fim de que haja conectividade de internet na VM BGP e que o protocolo ospf esteja rodando entre os 3 Roteadores.
-  
+
+> **Nota:** Inicialmente, testei o LAB utilizando eve-ng, entretanto, na ultima atualização, foi realizado no pnetlab, inclusive as ilustrações são deste ultimo.
 ## Preparação
   
-* Ao iniciar o junos pela primeira vez, acesse com usuário `root` e deixa a senha em branco. 
-* Então, use o comando `cli` para entrar no modo de usuário e o comando `configure` para acessar o modo de configuração. 
-* Vamos configurar agora um ip de gerencia na interface **fxp0**, para acessarmos por **ssh** e facilitar as configurações:
+* Ao iniciar o junos pela primeira vez, acesse com usuário `root` e deixa a senha em branco.
+* Então, use o comando `cli` para entrar no modo de usuário e o comando `configure` para acessar o modo de configuração.
+
+![](img/primeiro-login.png)
+
+* Poderemos opcionalmente agora configurar um ip de gerencia na interface **fxp0**, para acessarmos por **ssh** e facilitar as configurações:
 
 ```sql
+configure
 set interfaces fxp0 description "Interface de Gerencia"
+# Note que o IP abaixo é um endereço compativel com sua rede de gerencia
 set interfaces fxp0 unit 0 family inet address 192.168.3.5/24
 commit
 ```
+> *É normal que no eve-ng a imagem do Junos demore MUITO tempo pra subir. Depende muito da performance da sua instalação*
 
-Desabilite o Auto upgrade para o log parar de perturbar:
+* Desabilite o Auto upgrade para o log parar de perturbar:
 ```sql
 delete chassis auto-image-upgrade
 commit
 ```
 
- * Configure um usuário e habilite o acesso SSH. Ao colar códigos no terminal, o console SSH suporta mais caracteres de entrada que o console serial, facilitando o desempenho do LAB. Então a ideia é acessar o router via ssh no ip que setamos previamente na interface fxp
+ * Configure um usuário e habilite o acesso SSH. 
+ 
+ > _Ao colar códigos no terminal, o console SSH suporta mais caracteres de entrada que o console serial, facilitando o desempenho do LAB. Então a ideia é acessar o router via ssh no ip que setamos previamente na interface fxp_
 
 ```php
 ######################################
 ## Criacao do Usuario e acesso remoto
 ######################################
 
-## senha de root: aluno123
-## senha do usuario aluno: aluno123
+## senha de root: lab123
 deactivate system syslog user *
 set system root-authentication plain-text-password
 
@@ -46,10 +55,11 @@ set system root-authentication plain-text-password
 > O comando vai solicitar que crie a senha e confirme
 
 ```sql
-set system login user aluno class super-user
-set system login user aluno authentication plain-text-password
+## senha do usuario lab: lab123
+set system login user lab class super-user
+set system login user lab authentication plain-text-password
 ```
->Novamente crie a senha do usuario aluno e confirme
+>Novamente crie a senha do usuario lab e confirme
 
 Agora ativaremos o serviço ssh:
 ```sql
@@ -57,14 +67,17 @@ set system services ssh
 commit
 ```
 
-* Agora podemos logar no junos pelo ip de gerencia, que vc deve *adequar* ao seu lab, basta conectar a **fxp0** na nuvem 
+Agora podemos logar no junos pelo ip de gerencia, que vc deve *adequar* ao seu lab, basta conectar a **fxp0** na nuvem:
+![](img/lab-logado-ssh.png)
+
 * Já podemos aplicar a licença de teste gratuita no JunOS, válida por 60 dias, que é tempo suficiente para explorar o LAB:
 
 ```java
-run request system license add terminal
+request system license add terminal
 ```
 
 * Cole a chave e, numa linha vazia, pressione **Ctrl + D** para confirmar:
+![](img/colar-lic.png)
 
 ```
 E435890758 aeaqic aiagij cpabsc idycyi giydco bqgiyd
@@ -73,35 +86,36 @@ E435890758 aeaqic aiagij cpabsc idycyi giydco bqgiyd
            ya3md2 drdgjf preowc 5ubrju kyq'
 ```
 
-![](img/Screenshot_2.png)
 
-* Podemos verificar a licença com o comando `run show system license`
+* Podemos verificar a licença com o comando `show system license`
+![](img/checar-lic.png)
 
-![](img/Screenshot_3.png)
+> Como se pode notar, a licença permite 10 assinantes simultaneos, suficientes para um laboratório.
 
->como se pode notar, a licença permite 10 assinantes simultaneos, suficientes para um laboratório.
-
-* Configure os IPs nas interfaces para estabelecer conectividade
+* Configure os IPs nas interfaces para estabelecer conectividade e teste com ping
 
 
-| Roteador | Interface | IP | Vlan |
-| ------------- | --- | --- | --- |
-| Juniper | ge-0/0/0 | 10.1.1.2/30 | - |
-| Juniper | ge-0/0/1 | 10.3.1.2/30 | - |
-| Juniper | lo | 10.0.0.1/32 | - |
-| CGNat | ether2 | 10.1.1.1/30 | - |
-| CGNat | ether3 | 10.2.1.1/30 | - |
-| BGP | ether2 | 10.3.1.1/30 | - |
-| BGP | ether3 | 10.2.1.2/30 | - |
-| BGP | ether4 | 10.4.1.1/30 | - |
-| FreeRadius | ens3 | 10.4.1.2/30 | - |
+| Roteador      | Interface     | IPv4 | 
+| ------------- | ---           | --- | 
+| BGP           | lo0           | <span style="color:blue">10.0.0.1/32</span> | 
+| BGP           | ether2        | 10.3.1.1/30 | 
+| BGP           | ether3        | 10.2.1.2/30 | 
+| BGP           | ether4        | 10.4.1.1/30 | 
+| Juniper       | lo0           | <span style="color:blue">10.0.0.2/32</span> | 
+| Juniper       | ge-0/0/0      | 10.1.1.2/30 | 
+| Juniper       | ge-0/0/1      | 10.3.1.2/30 | 
+| CGNat         | lo0           | <span style="color:blue">10.0.0.3/32</span> | 
+| CGNat         | ether2        | 10.1.1.1/30 | 
+| CGNat         | ether3        | 10.2.1.1/30 | 
+| FreeRadius    | ens3          | 10.4.1.2/30 | 
 
 * Comandos no Junos:
 
 ```sql
+configure
 top edit interfaces lo0 unit 0
 set description "LOOPBACK"
-set family inet address 10.0.0.1/32
+set family inet address 10.0.0.2/32
 
 top edit interfaces ge-0/0/0 unit 0
 set description "CGNAT"
@@ -113,26 +127,34 @@ set family inet address 10.3.1.2/30
 
 commit
 ```
+> Os comandos nas mikrotik ficam por sua conta ^^ 
+> mas vc pode pegar uma colinha [aqui](mikrotik.md)
 
 * Vamos estabelecer OSPF entre o CGNAT e o BRAS para que conheçam as rotas dos clientes PPPoE
 
+> **Importante:** Diferentes profissionais utilizam diferentes técnicas em relação ao CGNAT. Neste lab, o CGNAT está conectado ao BRAS em vez do BGP para demostrar o uso de PBR no Junos, mas as topologias, bem como o uso se OSPF, BGP com as Privado ou rota estática com o CGNAT fica a critério do planejamento.
+
 ```sql
-top set routing-options router-id 10.0.0.1
+top set routing-options router-id 10.0.0.2
 top set protocols ospf area 0.0.0.0 interface ge-0/0/0.0
+top set protocols ospf area 0.0.0.0 interface ge-0/0/0.0 interface-type p2p
 top set protocols ospf area 0.0.0.0 interface ge-0/0/1.0
+top set protocols ospf area 0.0.0.0 interface ge-0/0/1.0 interface-type p2p
 top set protocols ospf area 0.0.0.0 interface lo0.0 passive
 commit
 ```
 
 + Após configurar os outros roteadores, basta testar se as rotas estão distribuidas
+![](img/ospf-peer.png)
 
+Até aqui, Temos os tres roteadores se cominucando. Vamos começar agora a parte que interessa: o BNG/BRAS propriamente dito!
 ## Configurações de BRAS ("Concentrador PPPoE")
 
 
 
-* Primeiro vamos habilitar o gerenciamento de clientes na caixa. Será necessário reboot após estas configurações
+* Primeiro vamos habilitar o gerenciamento de clientes na caixa. Será necessário reboot após estas configurações:
 
-```
+```sql
 set system services subscriber-management enable
 commit
 run request system reboot
@@ -146,7 +168,7 @@ commit
 
 * O Junos vai autenticar em um servidor Radius, portanto, vamos confiurar a conexão com Radius
 
-```
+```sql
 ## IP do Servidor Radius
 top edit access radius-server 10.4.1.2
 set port 1812
