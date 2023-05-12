@@ -178,6 +178,8 @@ set port 1812
 set accounting-port 1813
 ## senha do nas
 set secret radius
+# IP que aparecerá no radius
+set source-address 10.0.0.2
 top set access radius-disconnect-port 3799
 top set access radius-disconnect 10.4.1.2
 ```
@@ -354,7 +356,7 @@ top
 commit
 ```
 
-> Acima, criamos um nove perfil dinâmico de nome **vlan-profile** e extendemos a ele o perfil **PPPoE-Base**
+> Acima, criamos um novo perfil dinâmico de nome **vlan-profile** e extendemos a ele o perfil **PPPoE-Base**
 
 ```sql
 ## Comentar esta parte na doc:
@@ -383,7 +385,7 @@ Credenciais necessárias para possiveis testes:
 | mysql | root | SUA-SENHA-USER-ROOT | 
 
 
-Para fazer que o radius aceite qualquer ip deste lab, eu editei o arquivo `/etc/freeradius/3.0/clients.conf` e adicionei o seguinte:
+Para fazer que o radius aceite qualquer ip deste lab, não sendo necessário adicionar o cliente no banco de dados, eu editei o arquivo `/etc/freeradius/3.0/clients.conf` e adicionei o seguinte:
  
 ```
 client LAB {
@@ -391,6 +393,7 @@ client LAB {
         secret          = radius
 }
 ```
+Porém, o recomendado é adicionar o cliente no banco
 
 Nas tabelas radcheck, radusergroup e radgroupreply inseri estes dados:
 
@@ -407,6 +410,10 @@ INSERT INTO `radgroupreply` (`id`, `groupname`, `attribute`, `op`, `value`) VALU
 (1, 'FTTH_025M', 'ERX-Service-Activate:1', '=', '\"IPV4(20M,30M)\"'),
 (2, 'FTTH_050M', 'ERX-Service-Activate:1', '=', '\"IPV4(30M,50M)\"'),
 (3, 'FTTH_050M', 'ERX-Service-Activate:2', '=', '\"IPV6(30M,50M)\"');
+
+INSERT INTO nas (nasname, shortname, type, secret, server, community, description)
+VALUES ('10.0.0.2', 'Junos', 'cisco', 'radius', NULL, NULL, 'Roteador de laboratorio');
+
 ```
 
 Tudo certo, funcionando!
