@@ -297,9 +297,9 @@ commit
 
 ```
 
-* Cria o Serviço que será passado pelo Radius, com Variáveis, para IPv4
+Estamos proximos do começo do fim: falta apenas criar o Serviço que será passado pelo Radius, com **Variáveis**, para IPv4
 
-```
+```sql
 top edit dynamic-profiles IPV4
 set variables Bandwidth-IN default-value 32k
 set variables Bandwidth-IN mandatory
@@ -311,18 +311,22 @@ set variables Policer-IN uid
 set variables Policer-OUT uid
 set variables Filter-IN uid
 set variables Filter-OUT uid
+# 
 set interfaces pp0 unit "$junos-interface-unit" family inet filter input "$Filter-IN"
 set interfaces pp0 unit "$junos-interface-unit" family inet filter output "$Filter-OUT"
+# 
 set firewall family inet filter "$Filter-IN" interface-specific
 set firewall family inet filter "$Filter-IN" term 10 then policer "$Policer-IN"
 set firewall family inet filter "$Filter-IN" term 10 then accept
 set firewall family inet filter "$Filter-OUT" interface-specific
 set firewall family inet filter "$Filter-OUT" term 10 then policer "$Policer-OUT"
 set firewall family inet filter "$Filter-OUT" term 10 then accept
+# 
 set firewall policer "$Policer-IN" logical-interface-policer
 set firewall policer "$Policer-IN" if-exceeding bandwidth-limit "$Bandwidth-IN"
 set firewall policer "$Policer-IN" if-exceeding burst-size-limit "$Burst-IN"
 set firewall policer "$Policer-IN" then discard
+# 
 set firewall policer "$Policer-OUT" logical-interface-policer
 set firewall policer "$Policer-OUT" if-exceeding bandwidth-limit "$Bandwidth-OUT"
 set firewall policer "$Policer-OUT" if-exceeding burst-size-limit "$Burst-OUT"
@@ -331,7 +335,7 @@ top
 commit
 ```
 
-Feito isto, a caixa já deve estar capaz de autenticar um cliente e entregar um ip através do pool padrão definido acima. porém ainda não funciona com ipv6.
+Aleluia! Feito isto, a caixa já deve estar capaz de autenticar um cliente e entregar um IP através do *pool* padrão definido acima. Porém ainda não vai entregar IPv6.
 
 =====================
 Até aqui o esperado é que funcione mas deveremos criar um servidor pra cada vlan manualmente. Abaixo incremento o necessário para quando usarmos vlan configurada automaticamente:
