@@ -16,12 +16,12 @@ Como preparação, é preciso inicilizar todos os hosts e então realizar as con
 > **Nota:** Inicialmente, testei o LAB utilizando eve-ng, entretanto, na ultima atualização, foi realizado no pnetlab, inclusive as ilustrações são deste ultimo.
 ## Preparação
   
-* Ao iniciar o junos pela primeira vez, acesse com usuário `root` e deixa a senha em branco.
-* Então, use o comando `cli` para entrar no modo de usuário e o comando `configure` para acessar o modo de configuração.
+Ao iniciar o junos pela primeira vez, acesse com usuário `root` e deixa a senha em branco.
+Então, use o comando `cli` para entrar no modo de usuário e o comando `configure` para acessar o modo de configuração.
 
 ![](img/primeiro-login.png)
 
-* Poderemos opcionalmente agora configurar um ip de gerencia na interface **fxp0**, para acessarmos por **ssh** e facilitar as configurações:
+Poderemos opcionalmente agora configurar um ip de gerencia na interface **fxp0**, para acessarmos por **ssh** e facilitar as configurações:
 
 ```sql
 configure
@@ -32,13 +32,13 @@ commit
 ```
 > *É normal que no eve-ng a imagem do Junos demore MUITO tempo pra subir. Depende muito da performance da sua instalação*
 
-* Desabilite o Auto upgrade para o log parar de perturbar:
+Desabilite o Auto upgrade para o log parar de perturbar:
 ```sql
 delete chassis auto-image-upgrade
 commit
 ```
 
- * Configure um usuário e habilite o acesso SSH. 
+ Configure um usuário e habilite o acesso SSH. 
  
  > _Ao colar códigos no terminal, o console SSH suporta mais caracteres de entrada que o console serial, facilitando o desempenho do LAB. Então a ideia é acessar o router via ssh no ip que setamos previamente na interface fxp_
 
@@ -54,7 +54,7 @@ set system root-authentication plain-text-password
 ```
 > O comando vai solicitar que crie a senha e confirme
 
-```sql
+```php
 ## senha do usuario lab: lab123
 set system login user lab class super-user
 set system login user lab authentication plain-text-password
@@ -70,13 +70,13 @@ commit
 Agora podemos logar no junos pelo ip de gerencia, que vc deve *adequar* ao seu lab, basta conectar a **fxp0** na nuvem:
 ![](img/lab-logado-ssh.png)
 
-* Já podemos aplicar a licença de teste gratuita no JunOS, válida por 60 dias, que é tempo suficiente para explorar o LAB:
+Já podemos aplicar a licença de teste gratuita no JunOS, válida por 60 dias, que é tempo suficiente para explorar o LAB:
 
 ```java
 request system license add terminal
 ```
 
-* Cole a chave e, numa linha vazia, pressione **Ctrl + D** para confirmar:
+Cole a chave e, numa linha vazia, pressione **Ctrl + D** para confirmar:
 ![](img/colar-lic.png)
 
 ```
@@ -87,12 +87,12 @@ E435890758 aeaqic aiagij cpabsc idycyi giydco bqgiyd
 ```
 
 
-* Podemos verificar a licença com o comando `show system license`
+Podemos verificar a licença com o comando `show system license`
 ![](img/checar-lic.png)
 
 > Como se pode notar, a licença permite 10 assinantes simultaneos, suficientes para um laboratório.
 
-* Configure os IPs nas interfaces para estabelecer conectividade e teste com ping
+Configure os IPs nas interfaces para estabelecer conectividade e teste com ping
 
 
 | Roteador      | Interface     | IPv4 | 
@@ -109,7 +109,7 @@ E435890758 aeaqic aiagij cpabsc idycyi giydco bqgiyd
 | CGNat         | ether3        | 10.2.1.1/30 | 
 | FreeRadius    | ens3          | 10.4.1.2/30 | 
 
-* Comandos no Junos:
+Comandos no Junos:
 
 ```sql
 configure
@@ -130,7 +130,7 @@ commit
 > Os comandos nas mikrotik ficam por sua conta ^^ 
 > mas vc pode pegar uma colinha [aqui](mikrotik.md)
 
-* Vamos estabelecer OSPF entre o CGNAT e o BRAS para que conheçam as rotas dos clientes PPPoE
+Vamos estabelecer OSPF entre o CGNAT e o BRAS para que conheçam as rotas dos clientes PPPoE
 
 > **Importante:** Diferentes profissionais utilizam diferentes técnicas em relação ao CGNAT. Neste lab, o CGNAT está conectado ao BRAS em vez do BGP para demostrar o uso de PBR no Junos, mas as topologias, bem como o uso se OSPF, BGP com as Privado ou rota estática com o CGNAT fica a critério do planejamento.
 
@@ -144,15 +144,15 @@ top set protocols ospf area 0.0.0.0 interface lo0.0 passive
 commit
 ```
 
-+ Após configurar os outros roteadores, basta testar se as rotas estão distribuidas
+Após configurar os outros roteadores, basta testar se as rotas estão distribuidas
 ![](img/ospf-peer.png)
 
 Até aqui, Temos os tres roteadores se cominucando. Vamos começar agora a parte que interessa: o BNG/BRAS propriamente dito!
-## Configurações de BRAS ("Concentrador PPPoE")
+# BRAS ou BNG: vulgo "Concentrador PPPoE"
 
 
 
-* A primeira coisa a fazer é habilitar o gerenciamento de clientes na caixa. Será necessário reboot após estas configurações:
+A primeira coisa a fazer é habilitar o gerenciamento de clientes na caixa. Será necessário reboot após estas configurações:
 ![](img/aviso-reboot.png)
 
 ```sql
@@ -169,7 +169,7 @@ run request system reboot
 
 > Aguardamos mais uma eternidade para a vm voltar up ^^
 
-* O Junos comumente vai autenticar os usuários consultando um servidor **Radius**, portanto, vamos configurar a conexão com Radius antecipadamente:
+O Junos comumente vai autenticar os usuários consultando um servidor **Radius**, portanto, vamos configurar a conexão com Radius antecipadamente:
 
 ```sql
 ## IP do Servidor Radius
@@ -182,7 +182,7 @@ top set access radius-disconnect-port 3799
 top set access radius-disconnect 10.4.1.2
 ```
 
-* O Junos trabalha com perfil de autenticação, isto é, perfil de acesso, é possivel utilizar mais de um perfil e, por exemplo, cada grupo de vlan utilizar um perfil diferente. 
+O Junos trabalha com perfil de autenticação, isto é, perfil de acesso, é possivel utilizar mais de um perfil e, por exemplo, cada grupo de vlan utilizar um perfil diferente.
 
 Dito isto, neste exemplo vamos trabalhar com dois métodos de perfil dinâmico, onde no primeiro as configurações de firewall são dinâmicas e, no segundo, estáticas.
 
@@ -218,9 +218,9 @@ set accounting statistics volume-time
 commit
 ```
 
-* Precisamos definir um domínio, assim o perfil de autenticação criado acima se torna o padrão
+Precisamos definir um domínio, que terá o nome **default** e associar um perfil de acesso a ele:
 
-```
+```sql
 ## Configurando dominio de acesso:
 top edit access domain map default
 ## Qual perfil de acesso usar
@@ -228,11 +228,12 @@ set access-profile PPPoE-AAA-Profile
 ## Qual pool usar por padrao
 set address-pool pool-1
 
-## Global config
-top
-set system processes general-authentication-service traceoptions file radius
-set system processes general-authentication-service traceoptions flag all
+## Configuração global
+top edit system processes general-authentication-service
+set traceoptions file radius
+set traceoptions flag all
 ## Perfil de AAA padrao
+top
 set access-profile PPPoE-AAA-Profile
 set protocols pppoe traceoptions file "log_pppoe"
 set protocols pppoe traceoptions file files 5
@@ -241,9 +242,9 @@ set protocols pppoe traceoptions flag all
 commit
 ```
 
-* Criando o Pool IPv4 
+Criando o Pool IPv4
 
-```
+```sql
 top edit access address-assignment
 set pool pool-1 family inet network 100.64.0.0/10
 set pool pool-suspenso family inet network 169.254.0.0/22
@@ -252,24 +253,27 @@ commit
 
 ### Controle de banda via Service Activate (Feature 35)
 
-Nota: É necessário ter este feature ativado na licença
+> Nota: É necessário ter este *feature* ativado na licença
 
-+ Primeiro, habilitar o versionamento de profile na caixa, assim, não será necessário derrubar todos os clientes quando fizer uma alteração no profile.
+💡 Primeiro, habilitar o versionamento de *profile* na caixa, assim, não será necessário derrubar todos os clientes quando fizer uma alteração no profile.
 
-```
+```sql
 set system dynamic-profile-options versioning
 ```
 
-* Vamos configurar um perfil dinâmico básico. Este perfil básico será iterado pelos "serviços" dinamicos que serão informado pelo Radius.
+Vamos configurar um perfil dinâmico básico. Este perfil básico será iterado pelos "serviços" dinamicos que serão informado pelo Radius.
 
-```
+```sql
 top edit dynamic-profiles PPPoE-Base
+# Configura roteamento do tunnel
 set routing-instances "$junos-routing-instance" interface "$junos-interface-name"
 set routing-instances "$junos-routing-instance" routing-options access-internal route $junos-subscriber-ip-address qualified-next-hop "$junos-interface-name"
+# Parâmetros de autenticação
 set interfaces pp0 unit "$junos-interface-unit" ppp-options chap
 set interfaces pp0 unit "$junos-interface-unit" ppp-options pap
 set interfaces pp0 unit "$junos-interface-unit" ppp-options mru 1500
 set interfaces pp0 unit "$junos-interface-unit" ppp-options mtu 1500
+# Especifica a interface subjacente para a unidade
 set interfaces pp0 unit "$junos-interface-unit" pppoe-options underlying-interface "$junos-underlying-interface"
 set interfaces pp0 unit "$junos-interface-unit" pppoe-options server
 set interfaces pp0 unit "$junos-interface-unit" keepalives interval 60
@@ -277,26 +281,11 @@ set interfaces pp0 unit "$junos-interface-unit" family inet rpf-check
 set interfaces pp0 unit "$junos-interface-unit" family inet unnumbered-address "$junos-loopback-interface"
 top
 commit
-
-## Perfil para vlan demux?
-
-set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" vlan-id "$junos-vlan-id"
-set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" demux-options underlying-interface "$junos-interface-ifd-name"
-set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" family pppoe access-concentrator PPPoE-Base
-set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" family pppoe duplicate-protection
-set dynamic-profiles vlan-profile interfaces demux0 unit "$junos-interface-unit" family pppoe dynamic-profile PPPoE-Base
-
-
-
-
-
-
-
 ```
 
-* Sobe o servidor PPPoE com controle de banda dinamico na vlan 1000
+Sobe o servidor PPPoE com controle de banda dinamico na vlan 1000
 
-```
+```sql
 top edit interfaces ge-0/0/2
 set description CLIENTES-PPPOE
 set flexible-vlan-tagging
@@ -305,21 +294,6 @@ set vlan-id 1000
 set family pppoe access-concentrator VLAN1000
 set family pppoe dynamic-profile PPPoE-Base
 commit
-
-## Comentar esta parte na doc:
-ilunne@CORE-ACESSO> show configuration interfaces xe-0/0/3 | display set
-set description CLIENTES-PPPOE
-set flexible-vlan-tagging
-set auto-configure vlan-ranges dynamic-profile vlan-profile accept pppoe
-set auto-configure vlan-ranges dynamic-profile vlan-profile ranges any
-set auto-configure vlan-ranges override
-set auto-configure vlan-ranges access-profile PPPoE-Access-Profile
-set auto-configure remove-when-no-subscribers
-set encapsulation flexible-ethernet-services
-
-
-
-
 
 ```
 
@@ -359,6 +333,37 @@ commit
 
 Feito isto, a caixa já deve estar capaz de autenticar um cliente e entregar um ip através do pool padrão definido acima. porém ainda não funciona com ipv6.
 
+=====================
+Até aqui o esperado é que funcione mas deveremos criar um servidor pra cada vlan manualmente. Abaixo incremento o necessário para quando usarmos vlan configurada automaticamente:
+
+```sql
+## Perfil para vlan demux?
+
+top edit dynamic-profiles vlan-profile
+edit interfaces demux0 unit "$junos-interface-unit"
+set vlan-id "$junos-vlan-id"
+set demux-options underlying-interface "$junos-interface-ifd-name"
+set family pppoe access-concentrator PPPoE-Base
+set family pppoe duplicate-protection
+set family pppoe dynamic-profile PPPoE-Base
+top
+commit
+```
+
+> Acima, criamos um nove perfil dinâmico de nome **vlan-profile** e extendemos a ele o perfil **PPPoE-Base**
+
+```sql
+## Comentar esta parte na doc:
+ilunne@CORE-ACESSO> show configuration interfaces xe-0/0/3 | display set
+set description CLIENTES-PPPOE
+set flexible-vlan-tagging
+set auto-configure vlan-ranges dynamic-profile vlan-profile accept pppoe
+set auto-configure vlan-ranges dynamic-profile vlan-profile ranges any
+set auto-configure vlan-ranges override
+set auto-configure vlan-ranges access-profile PPPoE-Access-Profile
+set auto-configure remove-when-no-subscribers
+set encapsulation flexible-ethernet-services
+```
 
 ## Freeradius
 
