@@ -15,7 +15,9 @@ Como preparação, é preciso inicilizar todos os hosts e então realizar as con
 
 > **Nota:** Inicialmente, testei o LAB utilizando eve-ng, entretanto, na ultima atualização, foi realizado no pnetlab, inclusive as ilustrações são deste ultimo.
 ## Preparação
-  
+
++ [Artigo](https://tiparaleigo.wordpress.com/2019/08/07/configuracao-do-radius-juniper-mx/)
+
 Ao iniciar o junos pela primeira vez, acesse com usuário `root` e deixa a senha em branco.
 Então, use o comando `cli` para entrar no modo de usuário e o comando `configure` para acessar o modo de configuração.
 
