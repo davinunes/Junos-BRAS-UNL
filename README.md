@@ -373,50 +373,10 @@ set encapsulation flexible-ethernet-services
 
 ## Freeradius
 
+Para ficar menos extenso, separei a parte de **Freeradius** aqui: [FreeRadius](freeradius.md)
 
-Criei uma vm simplificada com freeradius3 para utilizar somente neste LAB, utilizando este tutorial: https://blog.remontti.com.br/2066.
+Também criei uma matéria sobre como usar o UserManager da Mikrotik para autenticar usuarios no Junos: [UserMan](userman.md)
 
-Credenciais necessárias para possiveis testes: 
-
-| Plataforma | Usuário | Senha | 
-| ------------- | --- | --- | 
-| linux | root | eve | 
-| phpmyadmin | radius | SENHA-DO-USER-RADIUS |
-| mysql | root | SUA-SENHA-USER-ROOT | 
-
-
-Para fazer que o radius aceite qualquer ip deste lab, não sendo necessário adicionar o cliente no banco de dados, eu editei o arquivo `/etc/freeradius/3.0/clients.conf` e adicionei o seguinte:
- 
-```
-client LAB {
-        ipaddr          = 10.0.0.0/8
-        secret          = radius
-}
-```
-Porém, o recomendado é adicionar o cliente no banco
-
-Nas tabelas radcheck, radusergroup e radgroupreply inseri estes dados:
-
-```
-INSERT INTO `radcheck` (`id`, `username`, `attribute`, `op`, `value`) VALUES
-(1, 'teste1', 'Cleartext-Password', ':=', 'teste1'),
-(2, 'teste2', 'Cleartext-Password', ':=', 'teste2');
-
-INSERT INTO `radusergroup` (`username`, `groupname`, `priority`) VALUES
-('teste1', 'FTTH_025M', 1),
-('teste2', 'FTTH_050M', 1);
-
-INSERT INTO `radgroupreply` (`id`, `groupname`, `attribute`, `op`, `value`) VALUES
-(1, 'FTTH_025M', 'ERX-Service-Activate:1', '=', '\"IPV4(20M,30M)\"'),
-(2, 'FTTH_050M', 'ERX-Service-Activate:1', '=', '\"IPV4(30M,50M)\"'),
-(3, 'FTTH_050M', 'ERX-Service-Activate:2', '=', '\"IPV6(30M,50M)\"');
-
-INSERT INTO nas (nasname, shortname, type, secret, server, community, description)
-VALUES ('10.0.0.2', 'Junos', 'cisco', 'radius', NULL, NULL, 'Roteador de laboratorio');
-
-```
-
-Tudo certo, funcionando!
 
 Agora podemos implementar IPv6 e depois os planos estáticos.
 
