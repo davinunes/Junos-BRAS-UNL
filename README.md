@@ -382,6 +382,7 @@ Agora podemos implementar IPv6 e depois os planos estáticos.
 
 ## IMPLEMENTAÇÃO DE IPV6
 
+Como acabamos de verificar na seção freeradius, usuário autenticando corretamente porém, sem IPv6. Daremos sequencia agora:
 
 * Antes de tudo vamos configurar um IPv6 na loopback
 
