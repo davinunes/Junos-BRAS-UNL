@@ -272,6 +272,7 @@ top edit dynamic-profiles PPPoE-Base
 # Configura roteamento do tunnel
 set routing-instances "$junos-routing-instance" interface "$junos-interface-name"
 set routing-instances "$junos-routing-instance" routing-options access-internal route $junos-subscriber-ip-address qualified-next-hop "$junos-interface-name"
+set routing-instances "$junos-routing-instance" routing-options access route $junos-framed-route-ip-address-prefix next-hop "$junos-framed-route-nexthop"
 # Parâmetros de autenticação
 set interfaces pp0 unit "$junos-interface-unit" ppp-options chap
 set interfaces pp0 unit "$junos-interface-unit" ppp-options pap
@@ -416,7 +417,7 @@ set then accept
 ## Propagar também as rotas conectadas:
 up 
 edit term 2
-set from protocol access
+set from protocol access access-internal
 set then accept
 top
 ```
