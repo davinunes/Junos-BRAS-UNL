@@ -13,13 +13,20 @@ Credenciais necessárias para possiveis testes:
 | phpmyadmin | radius | SENHA-DO-USER-RADIUS |
 | mysql | root | SUA-SENHA-USER-ROOT | 
 
+> Configurei na raiz do apache um mini ERP para auxiliar em cadastros e relatorios do radius. Porém o phpmyadmin pode sere acessado em /phpmyadmin
+
 
 Para fazer que o radius aceite *qualquer ip* neste lab, não sendo necessário adicionar o cliente no banco de dados, eu editei o arquivo `/etc/freeradius/3.0/clients.conf` e adicionei o seguinte:
  
 ```php
-client LAB {
+client LAB1 {
         ipaddr          = 10.0.0.0/8
         secret          = radius
+}
+
+client LAB2 {
+        ipaddr          = 192.168.0.0/16
+        secret          = esqueci
 }
 ```
 
@@ -48,6 +55,26 @@ INSERT INTO `radgroupreply` (`id`, `groupname`, `attribute`, `op`, `value`) VALU
 
 INSERT INTO nas (nasname, shortname, type, secret, server, community, description)
 VALUES ('10.0.0.2', 'Junos', 'cisco', 'radius', NULL, NULL, 'Roteador de laboratorio');
+```
+
+Para o laboratório de Cisco, adicionei também os atributos:
+
+```sql
+INSERT INTO `radgroupreply` (`id`, `groupname`, `attribute`, `op`, `value`) VALUES
+(5, 'FTTH_025M', 'Framed-Route', '=', '192.168.55.0/24'),
+(7, 'FTTH_025M', 'Cisco-AVPair', '+=', 'ip:sub-qos-policy-in=UPLOAD-25M'),
+(8, 'FTTH_025M', 'Cisco-AvPair', '+=', 'ip:sub-qos-policy-out=DOWNLOAD-25M');
+
+INSERT INTO nas (nasname, shortname, type, secret, server, community, description)
+VALUES ('192.168.4.50', 'Cisco', 'cisco', 'esqueci', NULL, NULL, 'Roteador de laboratorio');
+```
+
+
+Para o laboratório de Mikrotik, adicionei também os atributos:
+
+```sql
+INSERT INTO `radgroupreply` (`id`, `groupname`, `attribute`, `op`, `value`) VALUES
+(4, 'FTTH_025M', 'Mikrotik-Group', '=', 'write');
 ```
 
 Podemos testar no Junos se a conexão com a Radius está ok:
