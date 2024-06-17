@@ -1,7 +1,7 @@
 
 # Configurações iniciais
 
-```
+```php
 configure terminal
 
 hostname CiscoBNG
@@ -14,14 +14,14 @@ service timestamps log datetime localtime
 clock timezone GMT -3
 ```
 
-### Ativa v6
-```
+### Ativa roteamento IPv6
+```php
 ipv6 unicast-routing
 ```
 
 
 # Configurar SSH
-```
+```php
 aaa new-model
 ip domain name poop-v6-ndra.eti.br
 enable secret cisco
@@ -41,7 +41,7 @@ interface GigabitEthernet1
 ```
 
 # Configurar os POOLs de IP
-```
+```php
 ip local pool bloqueados 10.64.0.0 10.64.3.255
 ip local pool cgnat 100.64.0.0 100.64.15.255
 
@@ -55,7 +55,7 @@ ipv6 dhcp pool dhcpv6
 ```
 
 # Integração com RADIUS
-```
+```php
 subscriber templating
 
 aaa new-model
@@ -99,7 +99,7 @@ radius server default
 ```
 
 # VIRTUAL-TEMPLATE
-```
+```php
 interface Loopback0
  ip address 10.200.200.1 255.255.255.255
  ipv6 address 2001:DB8:255::255/128
@@ -127,7 +127,7 @@ interface Virtual-Template1
  ```
 
 # SERVICE PROFILE
-```
+```php
 bba-group pppoe global
  virtual-template 1
  vendor-tag circuit-id service
@@ -141,7 +141,7 @@ bba-group pppoe global
 
 # DEFININDO INTERFACE COMO PPPOE-SERVER
 
-```
+```php
 interface GigabitEthernet4
  ipv6 enable
  pppoe enable group global
@@ -151,7 +151,7 @@ interface GigabitEthernet4
  
 
 # CONTROLE DE BANDA ESTATICO
-```
+```php
 policy-map DOWNLOAD-25M
  class class-default
  police 25m
@@ -166,7 +166,7 @@ policy-map UPLOAD-25M
  exit
 ```
 > radgroupreply ou radreply
-> ```
+> ```php
 > Cisco-AvPair += ip:sub-qos-policy-in=UPLOAD-25M
 > Cisco-AvPair += ip:sub-qos-policy-out=DOWNLOAD-25M
 > ```
