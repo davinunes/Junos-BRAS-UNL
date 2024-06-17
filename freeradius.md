@@ -470,16 +470,3 @@ Ready to process requests
 
 Porém, no dia a dia, você provavelmente acompanhará por um log mais simplificado, por meio do comando ```tail -f /var/log/freeradius/radius.log```
 
-Já no Junos, você pode consultar os usuarios logados:
-
-```show subscribers```
-
-![](img/showsubs.png)
-
-E podemos ver detalhadamente:
-![](img/user-extensive.png)
-
-Tudo certo, funcionando!
-
-Porém, note que falta IPv6!
-Volte para a página principal que logo trataremos disto.
