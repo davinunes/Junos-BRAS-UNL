@@ -1,23 +1,27 @@
-####################################################
+
 # Configurações iniciais
-####################################################
+
+```
 configure terminal
 
 hostname CiscoBNG
 ip name-server 8.8.8.8
 no ip domain lookup
 
-#ajusta data hora e formato de tempo para os logs
+# ajusta data hora e formato de tempo para os logs
 ntp server 200.160.0.8
 service timestamps log datetime localtime
 clock timezone GMT -3
+```
 
-# Ativa v6
+### Ativa v6
+```
 ipv6 unicast-routing
+```
 
-####################################################
+
 # Configurar SSH
-####################################################
+```
 aaa new-model
 ip domain name poop-v6-ndra.eti.br
 enable secret cisco
@@ -34,10 +38,10 @@ interface GigabitEthernet1
  ip address dhcp
  negotiation auto
  exit
+```
 
-####################################################
 # Configurar os POOLs de IP
-####################################################
+```
 ip local pool bloqueados 10.64.0.0 10.64.3.255
 ip local pool cgnat 100.64.0.0 100.64.15.255
 
@@ -48,10 +52,10 @@ ipv6 dhcp pool dhcpv6
  prefix-delegation pool poop-v6-pd lifetime 18000 500
  dns-server 2001:4860:4680::8888
  exit
+```
 
-####################################################
 # Integração com RADIUS
-####################################################
+```
 subscriber templating
 
 aaa new-model
@@ -91,11 +95,11 @@ radius server default
  address ipv4 192.168.4.239 auth-port 1812 acct-port 1813
  key esqueci
  exit
-# Em um roteador de verdade usar tbm o comando: ip accounting-threshould 4000
+### Em um roteador de verdade usar tbm o comando: ip accounting-threshould 4000
+```
 
-####################################################
 # VIRTUAL-TEMPLATE
-####################################################
+```
 interface Loopback0
  ip address 10.200.200.1 255.255.255.255
  ipv6 address 2001:DB8:255::255/128
@@ -120,10 +124,10 @@ interface Virtual-Template1
  !ip tcp adjust-mss 1452
  !mtu 1480
  exit
- 
-####################################################
+ ```
+
 # SERVICE PROFILE
-####################################################
+```
 bba-group pppoe global
  virtual-template 1
  vendor-tag circuit-id service
@@ -133,21 +137,21 @@ bba-group pppoe global
  sessions per-vlan limit 64000 inner 64000
  sessions auto cleanup
  exit
+```
 
-####################################################
 # DEFININDO INTERFACE COMO PPPOE-SERVER
-####################################################
 
+```
 interface GigabitEthernet4
  ipv6 enable
  pppoe enable group global
  no shutdown
  exit
+ ```
  
- 
-####################################################
+
 # CONTROLE DE BANDA ESTATICO
-####################################################
+```
 policy-map DOWNLOAD-25M
  class class-default
  police 25m
@@ -160,7 +164,9 @@ policy-map UPLOAD-25M
  exit
  exit
  exit
-
-# radgroupreply ou radreply
-# Cisco-AvPair += ip:sub-qos-policy-in=UPLOAD-25M
-# Cisco-AvPair += ip:sub-qos-policy-out=DOWNLOAD-25M
+```
+> radgroupreply ou radreply
+> ```
+> Cisco-AvPair += ip:sub-qos-policy-in=UPLOAD-25M
+> Cisco-AvPair += ip:sub-qos-policy-out=DOWNLOAD-25M
+> ```
