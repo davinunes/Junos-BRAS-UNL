@@ -4,7 +4,6 @@
 ```php
 configure terminal
 
-hostname CiscoBNG
 ip name-server 8.8.8.8
 no ip domain lookup
 
@@ -22,14 +21,16 @@ ipv6 unicast-routing
 
 # Configurar SSH
 ```php
+hostname CiscoBNG
 aaa new-model
-ip domain name poop-v6-ndra.eti.br
+ip domain name davinunes.eti.br
 enable secret cisco
 username lab privilege 15 password 0 lab
 line vty 0 15
 transport input ssh
 exit
 crypto key generate rsa
+# Lembrar que a chave deve ser 1024
 ip ssh time-out 120
 ip ssh authentication-retries 5
 ip ssh version 2
@@ -45,11 +46,11 @@ interface GigabitEthernet1
 ip local pool bloqueados 10.64.0.0 10.64.3.255
 ip local pool cgnat 100.64.0.0 100.64.15.255
 
-ipv6 local pool poop-v6-ndra 2001:DB8:1000::/48 64
-ipv6 local pool poop-v6-pd 2001:DB8:8000::/40 56
+ipv6 local pool pool-v6-ndra 2001:DB8:1000::/48 64
+ipv6 local pool pool-v6-pd 2001:DB8:8000::/40 56
 
 ipv6 dhcp pool dhcpv6
- prefix-delegation pool poop-v6-pd lifetime 18000 500
+ prefix-delegation pool pool-v6-pd lifetime 18000 500
  dns-server 2001:4860:4680::8888
  exit
 ```
@@ -72,7 +73,7 @@ aaa accounting network DAVINUNES
 aaa nas port extended
 
 aaa server radius dynamic-author
- client 192.168.4.239 server-key esqueci
+ client 192.168.4.25 server-key esqueci
  auth-type any
  exit
 
@@ -92,7 +93,7 @@ radius-server unique-ident 34
 radius-server key esqueci
 
 radius server default
- address ipv4 192.168.4.239 auth-port 1812 acct-port 1813
+ address ipv4 192.168.4.25 auth-port 1812 acct-port 1813
  key esqueci
  exit
 ### Em um roteador de verdade usar tbm o comando: ip accounting-threshould 4000
@@ -101,21 +102,22 @@ radius server default
 # VIRTUAL-TEMPLATE
 ```php
 interface Loopback0
- ip address 10.200.200.1 255.255.255.255
+ ip address 10.255.255.255 255.255.255.255
  ipv6 address 2001:DB8:255::255/128
  exit
 
 interface Virtual-Template1
+ ipv6 enable
+
  ip unnumbered Loopback0
  ipv6 unnumbered Loopback0
- 
- ipv6 enable
+  
  ipv6 nd other-config-flag
  ipv6 nd router-preference High
  ipv6 dhcp server dhcpv6
  
  peer default ip address pool cgnat 
- peer default ipv6 pool poop-v6-ndra
+ peer default ipv6 pool pool-v6-ndra
  
  ppp authentication pap chap DAVINUNES
  ppp accounting DAVINUNES
@@ -152,13 +154,13 @@ interface GigabitEthernet4
 
 # CONTROLE DE BANDA ESTATICO
 ```php
-policy-map DOWNLOAD-25M
+policy-map DOWNLOAD25M
  class class-default
  police 25m
  exit
  exit
  exit
-policy-map UPLOAD-25M
+policy-map UPLOAD25M
  class class-default
  police 25m
  exit
