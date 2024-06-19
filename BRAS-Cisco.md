@@ -24,7 +24,8 @@ ipv6 unicast-routing
 hostname CiscoBNG
 aaa new-model
 ip domain name davinunes.eti.br
-enable secret cisco
+# enable secret cisco
+aaa authentication enable default none
 username lab privilege 15 password 0 lab
 line vty 0 15
 transport input ssh
