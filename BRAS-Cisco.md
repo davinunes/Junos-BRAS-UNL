@@ -62,12 +62,12 @@ subscriber templating
 
 aaa new-model
 
-aaa authentication ppp DAVINUNES group radius
-aaa authorization network DAVINUNES group radius
+aaa authentication ppp default group radius
+aaa authorization network default group radius
 aaa authorization subscriber-service default local group radius
 aaa accounting delay-start
 aaa accounting update periodic 1
-aaa accounting network DAVINUNES
+aaa accounting network default
  action-type start-stop
  group radius
  exit
@@ -120,8 +120,8 @@ interface Virtual-Template1
  peer default ip address pool cgnat 
  peer default ipv6 pool pool-v6-ndra
  
- ppp authentication pap chap DAVINUNES
- ppp accounting DAVINUNES
+ ppp authentication pap chap callin default
+ ppp accounting default
  ppp ipcp dns 8.8.8.8 8.8.4.4
  no logging event link-status
  !ip tcp adjust-mss 1452
