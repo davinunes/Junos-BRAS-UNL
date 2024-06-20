@@ -172,6 +172,12 @@ interface GigabitEthernet4
  pppoe enable group global
  no shutdown
  exit
+
+interface GigabitEthernet4.1000
+ encapsulation dot1Q 1000
+ ipv6 enable
+ pppoe enable group global
+ exit
  ```
  
 
