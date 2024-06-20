@@ -142,17 +142,6 @@ bba-group pppoe global
  exit
 ```
 
-# DEFININDO INTERFACE COMO PPPOE-SERVER
-
-```php
-interface GigabitEthernet4
- ipv6 enable
- pppoe enable group global
- no shutdown
- exit
- ```
- 
-
 # CONTROLE DE BANDA ESTATICO
 ```php
 policy-map DOWNLOAD25M
@@ -168,8 +157,23 @@ policy-map UPLOAD25M
  exit
  exit
 ```
+
 > radgroupreply ou radreply
 > ```php
 > Cisco-AvPair += ip:sub-qos-policy-in=UPLOAD-25M
 > Cisco-AvPair += ip:sub-qos-policy-out=DOWNLOAD-25M
 > ```
+
+# DEFININDO INTERFACE COMO PPPOE-SERVER
+
+```php
+interface GigabitEthernet4
+ ipv6 enable
+ pppoe enable group global
+ no shutdown
+ exit
+ ```
+ 
+
+
+
