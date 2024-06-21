@@ -274,20 +274,6 @@ top
 commit
 ```
 
-Sobe o servidor PPPoE com controle de banda dinamico na vlan 1000
-
-```sql
-top edit interfaces ge-0/0/2
-set description CLIENTES-PPPOE
-set flexible-vlan-tagging
-edit unit 1000
-set vlan-id 1000
-set family pppoe access-concentrator VLAN1000
-set family pppoe dynamic-profile PPPoE-Base
-commit
-
-```
-
 Estamos proximos do começo do fim: falta apenas criar o Serviço que será passado pelo Radius, com **Variáveis**, para IPv4
 
 ```sql
@@ -326,41 +312,62 @@ top
 commit
 ```
 
-Aleluia! Feito isto, a caixa já deve estar capaz de autenticar um cliente e entregar um IP através do *pool* padrão definido acima. Porém ainda não vai entregar IPv6.
+### Configura o servidor na interface
 
-
-> Até aqui o esperado é que funcione mas deveremos criar um servidor pra cada vlan manualmente. 
->
-> Abaixo incremento o necessário para quando usarmos vlan configurada automaticamente:
+Sobe o servidor PPPoE com controle de banda dinamico na vlan 1000, especificamente:
 
 ```sql
-## Perfil para vlan demux?
+top edit interfaces ge-0/0/2
+set description CLIENTES-PPPOE
+set flexible-vlan-tagging
+edit unit 1000
+set vlan-id 1000
+set family pppoe access-concentrator VLAN1000
+set family pppoe dynamic-profile PPPoE-Base
+commit
 
-top edit dynamic-profiles vlan-profile
+```
+Aleluia! Feito isto, a caixa já deve estar capaz de autenticar um cliente e entregar um IP através do *pool* padrão definido acima. Porém ainda não vai entregar IPv6.
+Além disso, é preciso configurar manualmente cada uma das vlans que for autenticar PPPoE. Mas existe uma forma de resolver isso:
+
+### Criamos o perfil para vlan demux
+
+```sql
+top edit dynamic-profiles demux-profile
 edit interfaces demux0 unit "$junos-interface-unit"
 set vlan-id "$junos-vlan-id"
 set demux-options underlying-interface "$junos-interface-ifd-name"
-set family pppoe access-concentrator PPPoE-Base
+set family pppoe access-concentrator PPPoE-Demux-Junos
 set family pppoe duplicate-protection
 set family pppoe dynamic-profile PPPoE-Base
 top
 commit
 ```
 
-> Acima, criamos um novo perfil dinâmico de nome **vlan-profile** e extendemos a ele o perfil **PPPoE-Base**
+> Acima, criamos um novo perfil dinâmico de nome **demux-profile** e impotamos para ele o perfil **PPPoE-Base**
+
+Podemos então configurar a interface para configurar automaticamente baseado no tipo de pacote que recebe:
 
 ```sql
-## Comentar esta parte na doc:
-ilunne@CORE-ACESSO> show configuration interfaces xe-0/0/3 | display set
+top edit interfaces ge-0/0/2
 set description CLIENTES-PPPOE
 set flexible-vlan-tagging
-set auto-configure vlan-ranges dynamic-profile vlan-profile accept pppoe
-set auto-configure vlan-ranges dynamic-profile vlan-profile ranges any
+
+set auto-configure stacked-vlan-ranges dynamic-profile demux-profile accept pppoe
+set auto-configure stacked-vlan-ranges dynamic-profile demux-profile ranges any,any
+set auto-configure stacked-vlan-ranges override
+set auto-configure stacked-vlan-ranges access-profile PPPoE-AAA-Profile
+
+set auto-configure vlan-ranges dynamic-profile demux-profile accept pppoe
+set auto-configure vlan-ranges dynamic-profile demux-profile ranges any
 set auto-configure vlan-ranges override
-set auto-configure vlan-ranges access-profile PPPoE-Access-Profile
+set auto-configure vlan-ranges access-profile PPPoE-AAA-Profile
+
 set auto-configure remove-when-no-subscribers
 set encapsulation flexible-ethernet-services
 ```
+
+Feito isso, a interface irá aceitar pacotes de qualquer vlan!
 
 
 ## IMPLEMENTAÇÃO DE IPV6
