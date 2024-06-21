@@ -501,7 +501,7 @@ commit
 ```
 
 
-### Controle de Banda via policy Estática
+# Controle de Banda via policy Estática
 
  
 + Para quem não tem a licença para configurar os planos de forma dinâmica, deverá criar uma configuração para CADA plano, e esta configuração deverá ser passada pelo Radius
@@ -589,7 +589,7 @@ set term PortasBaixas then discard
 ```
 
 
-## Anotações
+# Anotações
 
 *Por algum motivo, com a configuração acima não está funcionando, então configurei de forma estatica a vlan 1000:
 ```
