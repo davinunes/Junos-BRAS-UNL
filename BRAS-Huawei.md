@@ -1,12 +1,13 @@
-Usando imagem para eve-ng do vrp1000
+Nesse lab é utilizada a imagem AR1000V de Huawei. Já aviso de antemão que a versão do VRP dessa imagem é mais antiga, de modo que alguns comandos mudam completamente de sintaxe.
 
-Já nem preciso dizer que é tenso usar essa imagem no terminal, então a primeira coisa a fazer é providenciar acesso ssh:
+Ainda assim, resolvi documentar pela experiencia.
+Em outro artigo deixarei o lab com um equipamento real.
 
-https://support.huawei.com/enterprise/en/doc/EDOC1000178166/3467af6a/configuring-an-ssh-user
+Já nem preciso dizer que é tenso usar essa imagem no terminal, ela roda muito pesada. Para aceletrar um pouco aumentei a quantidade de nucleos de cpu e memória, ficando com 8G de memoria e 8cpu. 
 
-https://support.huawei.com/enterprise/en/doc/EDOC1100033773/f2f0ee0a/example-for-configuring-the-pppoe-server#dc_cfg_pppoe_1037
+A primeira coisa a fazer é providenciar acesso ssh, assim podemos deixar de usar o terminal serial que é lerdo e não reconhece a borracha:
 
-> Para usar a borrracha nesse vrp pode ser necessário usar CTRL + H
+> **Dica**: Para usar a borrracha nesse vrp pode ser necessário usar **CTRL + H**
 
 ```sql
 system-view
@@ -29,9 +30,12 @@ interface GigabitEthernet0/0/0
 
 >Logando pela primeira vez em ssh vai te obrigar a mudar a senha, coloquei **Lab123456**
 
+Subir um BRAS/BNG nessa imagem é bem fácil: 
+
 ```sql
 ip pool pool1
 network 100.64.3.0 mask 24
+# Esse é o IP que será o Gateway dos clientes
 gateway-list 10.255.255.222
 q
 
@@ -73,6 +77,8 @@ aaa
   radius-server radius
 ```
 
+Para ver os logs e informações de debug use esses comandos:
+
 ```bash
 display access-user
 display access-user domain system
@@ -85,8 +91,9 @@ terminal logging
 debugging radius all
 ```
 
+Este é um exemplo de debug completo de uma conexão pppoe autenticada via radius:
 
-```log
+```
 <Huawei>
 Jun 21 2024 16:42:48.477.1+00:00 Huawei RDS/7/DEBUG:
 [RDS(Evt):] Recv a msg(Auth req)
