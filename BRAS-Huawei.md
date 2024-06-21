@@ -56,6 +56,8 @@ interface GigabitEthernet 0/0/1
 
 radius-server template radius
  radius-server authentication 192.168.4.25 1812
+ # Sem o comando abaixo a senha vai truncada para o radius
+ radius-server shared-key cipher esqueci
  called-station-id mac-format dot-split
  q
 
