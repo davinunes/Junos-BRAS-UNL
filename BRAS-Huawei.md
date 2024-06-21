@@ -40,10 +40,14 @@ interface LoopBack 0
  q
 
 interface Virtual-Template1
- ppp authentication-mode pap
- ip address unnumbered interface LoopBack 0
+ ppp authentication-mode pap domain system
  remote address pool pool1
- ppp ipcp dns 10.10.10.10 10.10.10.11
+ ppp keepalive retry-times 2
+ ppp keepalive in-traffic check
+ ppp ipcp dns 8.8.8.8
+ timer hold 30
+ ip address unnumbered interface LoopBack0
+
  q
 
 interface GigabitEthernet 0/0/1
@@ -52,6 +56,7 @@ interface GigabitEthernet 0/0/1
 
 radius-server template radius
  radius-server authentication 192.168.4.25 1812
+ called-station-id mac-format dot-split
  q
 
 radius-server ip-address 192.168.4.25 shared-key cipher esqueci
@@ -59,8 +64,12 @@ y
 
 aaa
  authorization-scheme default
- domain default
- radius-server radius
+ domain system
+  authentication-scheme default
+  accounting-scheme default
+  authorization-scheme default
+  radius-server radius
+
   
 
 
