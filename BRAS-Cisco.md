@@ -42,6 +42,24 @@ interface GigabitEthernet1
  exit
 ```
 
+# Configura chave rsa
+
+```php
+conf t
+ip ssh pubkey-chain
+  username lab
+  key-string
+    AAAAB3NzaC1yc2EAAAABJQAAAQEAuC+NFPDqI8IGtAm3AfipAUfd1dNa9so5kpyvEyXCFpV
+    PBkeCNO0UACVWRYhaddPEH/ixfw7RNSFjyJGuAlc58P9po9jkwkhRomQBqfW/K5zF7k6hTU
+    W2xj4yfdd9BksmcZ5QG4x741F8no4FZWFb5nrDxwE3nz8SlbE9h6d8DfryJwlhvO7TBMWo5
+    xneXhBHFYq5f8OUluqOew/0+cbNp0L55XAH7dRqX8js54K3WfFWBs2QHVLWnQzEW2wEfmeX
+    nu5WjagDeiWU2DU6OXFEp5FZc+r5wjxeEzKfeWJTRgUJAHL9RWLfQnb8nMKLch8Q5zYj9g3
+    BH/bB/c28jV3d8w==
+    exit
+  exit
+exit
+```
+
 # Configurar os POOLs de IP
 ```php
 ip local pool bloqueados 10.64.0.0 10.64.3.255
